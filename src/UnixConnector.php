@@ -17,15 +17,18 @@ final class UnixConnector implements ConnectorInterface
         if (!str_contains($path, '://')) {
             $path = 'unix://' . $path;
         } elseif (!str_starts_with($path, 'unix://')) {
-            throw new InvalidUriException(sprintf('Invalid URI "%s" given', $path));
+            throw new InvalidUriException(
+                message: \sprintf('Given URI "%s" is invalid (EINVAL)', $path),
+                code: \defined('SOCKET_EINVAL') ? SOCKET_EINVAL : (defined('PCNTL_EINVAL') ? PCNTL_EINVAL : 22)
+            );
         }
 
         $resource = @stream_socket_client($path, $errno, $errstr, 1.0);
 
         if ($resource === false) {
             return Promise::rejected(new ConnectionFailedException(
-                \sprintf('Unable to connect to unix domain socket "%s": %s', $path, $errstr),
-                $errno
+                message: \sprintf('Unable to connect to unix domain socket "%s": %s', $path, $errstr),
+                code: $errno
             ));
         }
 

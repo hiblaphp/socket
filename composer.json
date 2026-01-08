@@ -1,7 +1,13 @@
 {
     "name": "hiblaphp/socket",
     "description": "Async, streaming plaintext TCP/IP and secure TLS socket server and client connections for HiblaPHP",
-    "keywords": ["async", "socket", "stream", "connection", "HiblaPHP"],
+    "keywords": [
+        "async",
+        "socket",
+        "stream",
+        "connection",
+        "HiblaPHP"
+    ],
     "license": "MIT",
     "minimum-stability": "dev",
     "prefer-stable": true,
@@ -9,7 +15,8 @@
         "php": "^8.3",
         "evenement/evenement": "^3.0",
         "hiblaphp/event-loop": "dev-main",
-        "hiblaphp/stream": "dev-main"
+        "hiblaphp/stream": "dev-main",
+        "hiblaphp/promise": "dev-main"
     },
     "require-dev": {
         "pestphp/pest": "^4.0"

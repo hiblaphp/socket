@@ -13,66 +13,50 @@ use Hibla\Socket\Exceptions\InvalidUriException;
 use Hibla\Socket\Interfaces\ServerInterface;
 use Hibla\Socket\Internals\SocketUtil;
 
-final class TcpServer extends EventEmitter implements ServerInterface
+final class FdServer extends EventEmitter implements ServerInterface
 {
-    /** @var resource */
     private readonly mixed $master;
-    private readonly string $address;
+    private readonly bool $isUnix;
+
     private bool $listening = false;
     private ?string $watcherId = null;
 
-    public function __construct(string $uri, private readonly array $context = [])
+    public function __construct(int|string $fd)
     {
-        if (is_numeric($uri)) {
-            $uri = '127.0.0.1:' . $uri;
+        if (\is_string($fd) && preg_match('#^php://fd/(\d+)$#', $fd, $matches)) {
+            $fd = (int) $matches[1];
         }
 
-        if (!str_contains($uri, '://')) {
-            $uri = 'tcp://' . $uri;
-        }
-
-        if (str_ends_with($uri, ':0')) {
-            $parts = parse_url(substr($uri, 0, -2));
-            if ($parts) {
-                $parts['port'] = 0;
-            }
-        } else {
-            $parts = parse_url($uri);
-        }
-
-        if (!$parts || !isset($parts['scheme'], $parts['host'], $parts['port']) || $parts['scheme'] !== 'tcp') {
+        if (!\is_int($fd) || $fd < 0) {
             throw new InvalidUriException(
-                \sprintf('Invalid URI "%s" given', $uri)
+                'Invalid file descriptor (FD) number given (EINVAL)'
             );
         }
 
-        if (@inet_pton(trim($parts['host'], '[]')) === false) {
-            throw new InvalidUriException(
-                \sprintf('Invalid URI "%s" does not contain a valid host IP', $uri)
-            );
-        }
+        set_error_handler(function (int $code, string $message) use (&$errno, &$errstr) {
+            $errno = $code;
+            $errstr = $message;
+        });
 
-        $errno = 0;
-        $errstr = '';
+        $resource = fopen('php://fd/' . $fd, 'r+');
 
-        $socket = @stream_socket_server(
-            address: $uri,
-            error_code: $errno,
-            error_message: $errstr,
-            flags: STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
-            context: stream_context_create(['socket' => $this->context + ['backlog' => 511]])
-        );
+        restore_error_handler();
 
-        if ($socket === false) {
+        if ($resource === false) {
             throw new BindFailedException(
-                \sprintf('Failed to listen on "%s": %s', $uri, $errstr),
-                $errno
+                \sprintf('Failed to open file descriptor %d: %s', $fd, $errstr),
+                $errno ?? 0
             );
         }
 
-        $this->master = $socket;
+        $this->master = $resource;
+
+        $this->validateSocketResource($fd);
+
+        $address = stream_socket_get_name($this->master, false);
+        $this->isUnix = ($address !== false && !str_contains($address, ':'));
+
         stream_set_blocking($this->master, false);
-        $this->address = stream_socket_get_name($this->master, false);
         $this->resume();
     }
 
@@ -82,13 +66,18 @@ final class TcpServer extends EventEmitter implements ServerInterface
             return null;
         }
 
-        $address = $this->address;
+        $address = stream_socket_get_name($this->master, false);
+        if ($address === false) return null;
+
+        if ($this->isUnix) {
+            return 'unix://' . $address;
+        }
+
         $pos = strrpos($address, ':');
         if ($pos !== false && strpos($address, ':') < $pos && !str_starts_with($address, '[')) {
-            $addr = substr($address, 0, $pos);
-            $port = substr($address, $pos + 1);
-            $address = '[' . $addr . ']:' . $port;
+            $address = '[' . substr($address, 0, $pos) . ']:' . substr($address, $pos + 1);
         }
+
         return 'tcp://' . $address;
     }
 
@@ -97,6 +86,7 @@ final class TcpServer extends EventEmitter implements ServerInterface
         if (!$this->listening || $this->watcherId === null) {
             return;
         }
+
         Loop::removeStreamWatcher($this->watcherId);
         $this->watcherId = null;
         $this->listening = false;
@@ -107,6 +97,7 @@ final class TcpServer extends EventEmitter implements ServerInterface
         if ($this->listening || !\is_resource($this->master)) {
             return;
         }
+
         $this->watcherId = Loop::addStreamWatcher(
             stream: $this->master,
             callback: $this->acceptConnection(...),
@@ -125,6 +116,26 @@ final class TcpServer extends EventEmitter implements ServerInterface
         $this->removeAllListeners();
     }
 
+    private function validateSocketResource(int $fd): void
+    {
+        $meta = stream_get_meta_data($this->master);
+        if (!isset($meta['stream_type']) || !\in_array($meta['stream_type'], ['tcp_socket', 'unix_socket'], true)) {
+            $this->close();
+            throw new BindFailedException(
+                \sprintf('File descriptor %d is not a valid TCP or Unix socket (ENOTSOCK)', $fd),
+                \defined('SOCKET_ENOTSOCK') ? SOCKET_ENOTSOCK : 88
+            );
+        }
+
+        if (stream_socket_get_name($this->master, remote: true) !== false) {
+            $this->close();
+            throw new BindFailedException(
+                \sprintf('File descriptor %d is already connected and not a listening socket (EISCONN)', $fd),
+                \defined('SOCKET_EISCONN') ? SOCKET_EISCONN : 106
+            );
+        }
+    }
+
     private function acceptConnection(): void
     {
         try {
@@ -135,9 +146,10 @@ final class TcpServer extends EventEmitter implements ServerInterface
         }
     }
 
+
     private function handleConnection(mixed $socket): void
     {
-        $connection = new Connection($socket);
+        $connection = new Connection($socket, isUnix: $this->isUnix);
         $this->emit('connection', [$connection]);
     }
 }

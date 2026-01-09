@@ -33,14 +33,14 @@ final class TcpConnector implements ConnectorInterface
         $parts = parse_url($uri);
         if (!$parts || !isset($parts['scheme'], $parts['host'], $parts['port']) || $parts['scheme'] !== 'tcp') {
             throw new InvalidUriException(
-                sprintf('Invalid URI "%s" given (expected format: tcp://host:port)', $uri)
+                \sprintf('Invalid URI "%s" given (expected format: tcp://host:port)', $uri)
             );
         }
 
         $ip = trim($parts['host'], '[]');
         if (@inet_pton($ip) === false) {
             throw new InvalidUriException(
-                sprintf('Given URI "%s" does not contain a valid host IP address', $uri)
+                \sprintf('Given URI "%s" does not contain a valid host IP address', $uri)
             );
         }
 

@@ -7,20 +7,6 @@ use Hibla\Socket\Interfaces\ConnectionInterface;
 use Hibla\Socket\TcpServer;
 
 describe('TCP Server', function () {
-    function get_free_port(): int
-    {
-        $socket = @stream_socket_server('127.0.0.1:0', $errno, $errstr);
-
-        if ($socket === false) {
-            test()->skip("Could not find a free port: {$errstr}");
-        }
-
-        $address = stream_socket_get_name($socket, false);
-        fclose($socket);
-
-        return (int) substr(strrchr($address, ':'), 1);
-    }
-
     $server = null;
     $clients = [];
 

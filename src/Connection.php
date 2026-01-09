@@ -15,6 +15,11 @@ use Hibla\Socket\Interfaces\ConnectionInterface;
  */
 final class Connection extends EventEmitter implements ConnectionInterface
 {
+    /**
+     * @internal
+     */
+    public bool $encryptionEnabled = false;
+
     private readonly DuplexResourceStream $stream;
 
     /**
@@ -74,6 +79,16 @@ final class Connection extends EventEmitter implements ConnectionInterface
         $this->removeAllListeners();
     }
 
+    /**
+     * Exposes the underlying stream resource.
+     * @internal Used by StreamEncryption
+     * @return resource
+     */
+    public function getResource()
+    {
+        return $this->resource;
+    }
+
     public function handleClose(): void
     {
         if (!\is_resource($this->resource)) {
@@ -117,6 +132,8 @@ final class Connection extends EventEmitter implements ConnectionInterface
             $address = '[' . \substr($address, 0, $pos) . ']:' . \substr($address, $pos + 1);
         }
 
-        return 'tcp://' . $address;
+        $scheme = $this->encryptionEnabled ? 'tls' : 'tcp';
+
+        return $scheme . '://' . $address;
     }
 }

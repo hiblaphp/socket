@@ -52,36 +52,50 @@ function create_listening_socket(string $address): mixed
 
 function get_fd_from_socket(mixed $socket): int
 {
-    $meta = stream_get_meta_data($socket);
+    if (!is_resource($socket)) {
+        throw new InvalidArgumentException('Expected a valid resource');
+    }
 
     if (PHP_OS_FAMILY === 'Windows') {
         test()->skip('FD extraction not reliably supported on Windows');
     }
 
-    preg_match('/\d+/', $meta['uri'], $matches);
-    return (int) ($matches[0] ?? -1);
-}
-
-function get_next_free_fd(): int
-{
-    $tmp = tmpfile();
-
-    $dir = @scandir('/dev/fd');
-    if ($dir === false) {
-        throw new BadMethodCallException('Not supported on your platform because /dev/fd is not readable');
+    if (!is_dir('/dev/fd')) {
+        test()->skip('Not supported on your platform (requires /dev/fd)');
     }
 
-    $stat = fstat($tmp);
+    $stat = @fstat($socket);
+    if ($stat === false) {
+        throw new RuntimeException('Could not get socket file stats');
+    }
+    
     $ino = (int) $stat['ino'];
 
-    foreach ($dir as $file) {
-        $stat = @stat('/dev/fd/' . $file);
-        if (isset($stat['ino']) && $stat['ino'] === $ino) {
-            return (int) $file;
+    set_error_handler(function() { /* suppress all errors */ });
+    
+    try {
+        $dir = scandir('/dev/fd');
+        
+        if ($dir === false) {
+            throw new RuntimeException('Cannot read /dev/fd directory');
         }
+
+        foreach ($dir as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $fdStat = stat('/dev/fd/' . $file);
+            
+            if ($fdStat !== false && isset($fdStat['ino']) && $fdStat['ino'] === $ino) {
+                return (int) $file;
+            }
+        }
+    } finally {
+        restore_error_handler();
     }
 
-    throw new UnderflowException('Could not locate file descriptor for this resource');
+    throw new RuntimeException('Could not determine file descriptor for socket');
 }
 
 function generate_temp_cert(): string

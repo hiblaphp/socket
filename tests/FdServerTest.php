@@ -33,8 +33,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         expect($server->getAddress())->toContain('tcp://127.0.0.1:');
@@ -45,8 +45,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer('php://fd/' . $fd);
         expect($server->getAddress())->toContain('tcp://127.0.0.1:');
@@ -63,9 +63,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
-
-        expect(fn() => new FdServer($fd))->toThrow(BindFailedException::class);
+        // Use a very high FD number that's unlikely to exist
+        expect(fn() => new FdServer(9999))->toThrow(BindFailedException::class);
     });
 
     it('throws BindFailedException for non-socket file descriptor', function () {
@@ -73,10 +72,12 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $tmpFile = tmpfile();
+        $fd = get_fd_from_socket($tmpFile);
 
         expect(fn() => new FdServer($fd))->toThrow(BindFailedException::class, 'not a valid TCP or Unix socket');
+        
+        fclose($tmpFile);
     });
 
     it('throws BindFailedException for already connected socket', function () use (&$listeningSockets) {
@@ -87,8 +88,8 @@ describe('FD Server', function () {
         $listeningSockets[] = stream_socket_server('tcp://127.0.0.1:0');
         $serverAddr = stream_socket_get_name(end($listeningSockets), false);
 
-        $fd = get_next_free_fd();
         $client = stream_socket_client('tcp://' . $serverAddr);
+        $fd = get_fd_from_socket($client);
 
         expect(fn() => new FdServer($fd))->toThrow(BindFailedException::class);
 
@@ -100,8 +101,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         expect($server->getAddress())->not->toBeNull();
@@ -115,9 +116,9 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
         $serverAddr = stream_socket_get_name(end($listeningSockets), false);
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         $connectionReceived = null;
@@ -147,9 +148,9 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
         $serverAddr = stream_socket_get_name(end($listeningSockets), false);
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         $connectionCount = 0;
@@ -183,9 +184,9 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
         $serverAddr = stream_socket_get_name(end($listeningSockets), false);
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         $connectionCount = 0;
@@ -220,8 +221,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
 
@@ -236,8 +237,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
 
@@ -251,8 +252,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
 
@@ -267,9 +268,9 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
         $serverAddr = stream_socket_get_name(end($listeningSockets), false);
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         $dataReceived = null;
@@ -304,13 +305,13 @@ describe('FD Server', function () {
 
         $socketPath = sys_get_temp_dir() . '/test_' . uniqid() . '.sock';
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = @stream_socket_server('unix://' . $socketPath);
 
         if (end($listeningSockets) === false) {
             test()->skip('Unix sockets not supported on this system');
         }
 
+        $fd = get_fd_from_socket(end($listeningSockets));
         $server = new FdServer($fd);
 
         expect($server->getAddress())->toBe('unix://' . $socketPath);
@@ -323,7 +324,6 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = @stream_socket_server('tcp://[::1]:0');
 
         if (end($listeningSockets) === false) {
@@ -332,6 +332,7 @@ describe('FD Server', function () {
 
         $address = stream_socket_get_name(end($listeningSockets), false);
         $port = parse_url('tcp://' . $address, PHP_URL_PORT);
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         $connectionReceived = false;
@@ -360,9 +361,9 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
         $serverAddr = stream_socket_get_name(end($listeningSockets), false);
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         $localAddress = null;
@@ -391,8 +392,8 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
         $errorEmitted = false;
@@ -418,9 +419,9 @@ describe('FD Server', function () {
             test()->skip('Not supported on your platform (requires /dev/fd)');
         }
 
-        $fd = get_next_free_fd();
         $listeningSockets[] = stream_socket_server('127.0.0.1:0');
         $serverAddr = stream_socket_get_name(end($listeningSockets), false);
+        $fd = get_fd_from_socket(end($listeningSockets));
 
         $server = new FdServer($fd);
 

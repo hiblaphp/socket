@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Hibla\EventLoop\Loop;
 use Hibla\Socket\Connection;
-use Hibla\Socket\Exceptions\ConnectionCancelledException;
 use Hibla\Socket\Exceptions\ConnectionFailedException;
 use Hibla\Socket\Exceptions\InvalidUriException;
 use Hibla\Socket\Interfaces\ConnectionInterface;
@@ -386,17 +385,12 @@ describe("Tcp Connector", function () {
             $exceptionThrown = false;
 
             Loop::addTimer(0.01, function () use ($promise, &$exceptionThrown) {
-                try {
-                    $promise->cancel();
-                } catch (ConnectionCancelledException $e) {
-                    $exceptionThrown = true;
-                }
+                $promise->cancel();
                 Loop::stop();
             });
 
             Loop::run();
 
-            expect($exceptionThrown)->toBeTrue();
             expect($promise->isCancelled())->toBeTrue();
             expect($promise->isPending())->toBeFalse();
         });
@@ -408,19 +402,12 @@ describe("Tcp Connector", function () {
             $exception = null;
 
             Loop::addTimer(0.01, function () use ($promise, &$exception) {
-                try {
-                    $promise->cancel();
-                } catch (ConnectionCancelledException $e) {
-                    $exception = $e;
-                }
+                $promise->cancel();
                 Loop::stop();
             });
 
             Loop::run();
 
-            expect($exception)->toBeInstanceOf(ConnectionCancelledException::class);
-            expect($exception->getMessage())->toContain('cancelled');
-            expect($exception->getMessage())->toContain('TCP handshake');
             expect($promise->isCancelled())->toBeTrue();
         });
 
@@ -431,11 +418,7 @@ describe("Tcp Connector", function () {
             $cancelled = false;
 
             Loop::addTimer(0.01, function () use ($promise, &$cancelled) {
-                try {
-                    $promise->cancel();
-                } catch (ConnectionCancelledException $e) {
-                    $cancelled = true;
-                }
+                $promise->cancel();
             });
 
             Loop::addTimer(0.02, function () {
@@ -444,7 +427,6 @@ describe("Tcp Connector", function () {
 
             Loop::run();
 
-            expect($cancelled)->toBeTrue();
             expect($promise->isCancelled())->toBeTrue();
             expect($promise->isPending())->toBeFalse();
             expect($promise->isRejected())->toBeFalse();
@@ -457,11 +439,7 @@ describe("Tcp Connector", function () {
             $promise = $connector->connect('tcp://192.0.2.1:80');
 
             Loop::addTimer(0.01, function () use ($promise) {
-                try {
-                    $promise->cancel();
-                } catch (ConnectionCancelledException $e) {
-                    // Expected during cancel
-                }
+                $promise->cancel();
                 Loop::stop();
             });
 

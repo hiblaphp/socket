@@ -8,7 +8,6 @@ use Hibla\EventLoop\Loop;
 use Hibla\EventLoop\ValueObjects\StreamWatcher;
 use Hibla\Promise\Interfaces\PromiseInterface;
 use Hibla\Promise\Promise;
-use Hibla\Socket\Exceptions\ConnectionCancelledException;
 use Hibla\Socket\Exceptions\ConnectionFailedException;
 use Hibla\Socket\Exceptions\InvalidUriException;
 use Hibla\Socket\Interfaces\ConnectorInterface;
@@ -141,10 +140,6 @@ final class TcpConnector implements ConnectorInterface
         $promise->onCancel(function () use ($stream, $cleanup, $uri): void {
             $cleanup();
             @fclose($stream);
-
-            throw new ConnectionCancelledException(
-                sprintf('Connection to %s cancelled during TCP handshake', $uri)
-            );
         });
 
         return $promise;

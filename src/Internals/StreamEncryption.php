@@ -59,7 +59,6 @@ final class StreamEncryption
         /** @var resource $socket */
         $socket = $connection->getResource();
 
-        // Allow overriding the crypto method via stream context
         $context = stream_context_get_options($socket);
         $method = $context['ssl']['crypto_method'] ?? $this->method;
 
@@ -67,7 +66,6 @@ final class StreamEncryption
         $promise = new Promise();
         $watcherId = null;
 
-        // The cleanup function removes the temporary handshake watcher
         $cleanup = function () use (&$watcherId): void {
             if ($watcherId !== null) {
                 Loop::removeStreamWatcher($watcherId);
@@ -75,7 +73,6 @@ final class StreamEncryption
             }
         };
 
-        // The actual handshake logic
         $handshake = function () use ($socket, $enable, $method, $promise, $connection, $cleanup): void {
             $error = null;
             set_error_handler(function (int $_, string $msg) use (&$error) {
@@ -85,7 +82,6 @@ final class StreamEncryption
                 }
             });
 
-            // Try to enable/disable crypto
             $result = stream_socket_enable_crypto($socket, $enable, $method);
             
             restore_error_handler();
@@ -126,7 +122,7 @@ final class StreamEncryption
             type: StreamWatcher::TYPE_READ
         );
 
-        // If we are the client, we usually need to start the handshake immediately
+        // If we are the client, start the handshake immediately
         // rather than waiting for the server to send data first.
         if (!$this->isServer) {
             $handshake();
@@ -134,7 +130,6 @@ final class StreamEncryption
 
         $promise->onCancel(function () use ($cleanup): void {
             $cleanup();
-            throw new EncryptionFailedException('TLS handshake cancelled');
         });
 
         return $promise;

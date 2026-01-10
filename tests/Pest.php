@@ -83,3 +83,37 @@ function get_next_free_fd(): int
 
     throw new UnderflowException('Could not locate file descriptor for this resource');
 }
+
+function generate_temp_cert(): string
+{
+    $dn = [
+        "countryName" => "PH",
+        "stateOrProvinceName" => "Test",
+        "localityName" => "Test",
+        "organizationName" => "Hibla",
+        "organizationalUnitName" => "Testing",
+        "commonName" => "127.0.0.1",
+        "emailAddress" => "test@example.com"
+    ];
+
+    $privkey = openssl_pkey_new([
+        "private_key_bits" => 2048,
+        "private_key_type" => OPENSSL_KEYTYPE_RSA,
+    ]);
+
+    $csr = openssl_csr_new($dn, $privkey, ['digest_alg' => 'sha256']);
+    $x509 = openssl_csr_sign($csr, null, $privkey, 1, ['digest_alg' => 'sha256']);
+
+    $tempDir = sys_get_temp_dir();
+    $certFile = $tempDir . '/hibla_test_cert_' . uniqid() . '.pem';
+
+    $pem = '';
+    openssl_x509_export($x509, $cert);
+    $pem .= $cert;
+    openssl_pkey_export($privkey, $key);
+    $pem .= $key;
+
+    file_put_contents($certFile, $pem);
+
+    return $certFile;
+}

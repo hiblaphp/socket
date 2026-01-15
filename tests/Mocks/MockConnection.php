@@ -2,17 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Hibla\Socket\Tests\Mocks;
+namespace Tests\Mocks;
 
 use Hibla\Socket\Interfaces\ConnectionInterface;
 use Hibla\Stream\Interfaces\WritableStreamInterface;
 
-/**
- * Mock connection for testing purposes.
- * 
- * Provides a simple, non-functional implementation of ConnectionInterface
- * suitable for testing connector behavior.
- */
 class MockConnection implements ConnectionInterface
 {
     private bool $readable = true;
@@ -77,32 +71,32 @@ class MockConnection implements ConnectionInterface
         return $this->closed ? null : $this->localAddress;
     }
     
-    public function on(string $event, callable $listener): void
+    public function on($event, callable $listener): void
     {
         // No-op for mock
     }
     
-    public function once(string $event, callable $listener): void
+    public function once($event, callable $listener): void
     {
         // No-op for mock
     }
     
-    public function removeListener(string $event, callable $listener): void
+    public function removeListener($event, callable $listener): void
     {
         // No-op for mock
     }
     
-    public function removeAllListeners(?string $event = null): void
+    public function removeAllListeners($event = null): void
     {
         // No-op for mock
     }
     
-    public function listeners(string $event): array
+    public function listeners($event = null): array
     {
         return [];
     }
     
-    public function emit(string $event, array $arguments = []): void
+    public function emit($event, array $arguments = []): void
     {
         // No-op for mock
     }

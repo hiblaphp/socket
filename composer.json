@@ -16,14 +16,21 @@
         "evenement/evenement": "^3.0",
         "hiblaphp/event-loop": "dev-main",
         "hiblaphp/stream": "dev-main",
-        "hiblaphp/promise": "dev-main"
+        "hiblaphp/promise": "dev-main",
+        "hiblaphp/dns": "dev-main"
     },
     "require-dev": {
-        "pestphp/pest": "^4.0"
+        "pestphp/pest": "^4.0",
+        "laravel/pint": "^1.0"
     },
     "autoload": {
         "psr-4": {
             "Hibla\\Socket\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
         }
     },
     "config": {

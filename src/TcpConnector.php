@@ -16,15 +16,12 @@ use Hibla\Socket\Interfaces\ConnectionInterface;
 final class TcpConnector implements ConnectorInterface
 {
     public function __construct(
-        private readonly array $context = [],
-        private readonly ?float $defaultTimeout = null
+        private readonly array $context = []
     ) {
     }
 
-    public function connect(string $uri, ?float $timeout = null): PromiseInterface
+    public function connect(string $uri): PromiseInterface
     {
-        $timeout ??= $this->defaultTimeout;
-        
         if (!str_contains($uri, '://')) {
             $uri = 'tcp://' . $uri;
         }
@@ -89,17 +86,11 @@ final class TcpConnector implements ConnectorInterface
         /** @var Promise<ConnectionInterface> $promise */
         $promise = new Promise();
         $watcherId = null;
-        $timeoutId = null;
 
-        $cleanup = function () use (&$watcherId, &$timeoutId): void {
+        $cleanup = function () use (&$watcherId): void {
             if ($watcherId !== null) {
                 Loop::removeStreamWatcher($watcherId);
                 $watcherId = null;
-            }
-            
-            if ($timeoutId !== null) {
-                Loop::cancelTimer($timeoutId);
-                $timeoutId = null;
             }
         };
 
@@ -125,19 +116,7 @@ final class TcpConnector implements ConnectorInterface
             type: StreamWatcher::TYPE_WRITE
         );
 
-        if ($timeout !== null) {
-            $timeoutId = Loop::addTimer($timeout, function () use ($stream, $promise, $cleanup, $uri, $timeout): void {
-                $cleanup();
-                @fclose($stream);
-                
-                $promise->reject(new ConnectionFailedException(
-                    sprintf('Connection to %s timed out after %.2f seconds', $uri, $timeout),
-                    \defined('SOCKET_ETIMEDOUT') ? SOCKET_ETIMEDOUT : 110
-                ));
-            });
-        }
-
-        $promise->onCancel(function () use ($stream, $cleanup, $uri): void {
+        $promise->onCancel(function () use ($stream, $cleanup): void {
             $cleanup();
             @fclose($stream);
         });

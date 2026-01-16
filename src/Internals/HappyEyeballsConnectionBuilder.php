@@ -103,9 +103,11 @@ final class HappyEyeBallsConnectionBuilder
                 // 1. No timer is scheduled AND
                 // 2. We have IPs to try AND  
                 // 3. No connection attempts are currently running
-                if ($this->nextAttemptTimerId === null && 
-                    $this->connectQueue !== [] && 
-                    $this->connectionPromises === []) {
+                if (
+                    $this->nextAttemptTimerId === null &&
+                    $this->connectQueue !== [] &&
+                    $this->connectionPromises === []
+                ) {
                     $this->check($promise);
                 }
             };
@@ -246,8 +248,10 @@ final class HappyEyeBallsConnectionBuilder
         $this->connectionPromises[$index] = $connectionPromise;
 
         $connectionPromise->then(
-            function ($connection) use ($index, $promise): void {
+            onFulfilled: function ($connection) use ($index, $promise): void {
                 if ($this->isResolved) {
+                    $connection->close();
+                    
                     return;
                 }
 
@@ -256,7 +260,7 @@ final class HappyEyeBallsConnectionBuilder
                 $this->cleanUp();
                 $promise->resolve($connection);
             },
-            function (\Throwable $e) use ($index, $ip, $promise): void {
+            onRejected: function (\Throwable $e) use ($index, $ip, $promise): void {
                 if ($this->isResolved) {
                     return;
                 }
@@ -284,9 +288,11 @@ final class HappyEyeBallsConnectionBuilder
                 // This is parallel racing, not serial fallback
 
                 // Only reject if all attempts exhausted
-                if ($this->hasBeenResolved() && 
+                if (
+                    $this->hasBeenResolved() &&
                     $this->ipsCount === $this->failureCount &&
-                    $this->connectQueue === []) {
+                    $this->connectQueue === []
+                ) {
                     $this->isResolved = true;
                     $this->cleanUp();
                     $promise->reject(new ConnectionFailedException(

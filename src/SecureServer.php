@@ -33,7 +33,7 @@ final class SecureServer extends EventEmitter implements ServerInterface
         array $context = []
     ) {
         $this->context = $context + ['passphrase' => ''];
-        
+
         $this->encryption = new StreamEncryption(isServer: true);
 
         $this->server->on('error', fn(Throwable $error) => $this->emit('error', [$error]));
@@ -43,7 +43,7 @@ final class SecureServer extends EventEmitter implements ServerInterface
     public function getAddress(): ?string
     {
         $address = $this->server->getAddress();
-        
+
         if ($address === null) {
             return null;
         }
@@ -87,12 +87,10 @@ final class SecureServer extends EventEmitter implements ServerInterface
 
         $this->encryption->enable($connection)
             ->then(
-                function (Connection $secureConnection) {
+                onFulfilled: function (Connection $secureConnection) {
                     $this->emit('connection', [$secureConnection]);
-                }
-            )
-            ->catch(
-                function (Throwable $error) use ($connection, $remote) {
+                },
+                onRejected: function (Throwable $error) use ($connection, $remote) {
                     $wrappedError = new EncryptionFailedException(
                         \sprintf('Connection from %s failed during TLS handshake: %s', $remote, $error->getMessage()),
                         (int) $error->getCode(),

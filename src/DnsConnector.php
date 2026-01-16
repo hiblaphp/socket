@@ -70,10 +70,10 @@ final class DnsConnector implements ConnectorInterface
                 $connectionPromise = $this->connector->connect($connectionUri);
 
                 $connectionPromise->then(
-                    function ($connection) use ($promise): void {
+                    onFulfilled: function ($connection) use ($promise): void {
                         $promise->resolve($connection);
                     },
-                    function (\Throwable $e) use ($promise, $original): void {
+                    onRejected: function (\Throwable $e) use ($promise, $original): void {
                         if ($e instanceof ConnectionFailedException) {
                             $message = preg_replace(
                                 '/^(Connection to [^ ]+)(\?hostname=[^ &]+)?/',

@@ -80,7 +80,6 @@ final class Connector implements ConnectorInterface
 
         if ($context['tls'] !== false && isset($connectors['tcp'])) {
             $tls = $this->buildTlsConnector($context, $connectors['tcp']);
-            $tls = $this->applyTimeout($tls, $context);
             
             $connectors['tls'] = $tls;
         }
@@ -131,8 +130,7 @@ final class Connector implements ConnectorInterface
         }
 
         return new TcpConnector(
-            context: is_array($context['tcp']) ? $context['tcp'] : [],
-            defaultTimeout: $context['timeout'] !== false ? (float) $context['timeout'] : null
+            context: is_array($context['tcp']) ? $context['tcp'] : []
         );
     }
 

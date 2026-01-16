@@ -99,7 +99,7 @@ final class SecureConnector implements ConnectorInterface
 
         $promise->onCancel(function () use (&$currentPendingOperation) {
             if ($currentPendingOperation instanceof PromiseInterface) {
-                $currentPendingOperation->cancel();
+                $currentPendingOperation->cancelChain();
             }
         });
 

@@ -536,20 +536,20 @@ describe('DnsConnector - Real Network Integration', function () {
 
     test('resolves IPv6 address and connects', function () {
         $resolver = Dns::new()
-            ->withNameservers(['2606:4700:4700::1111', '2606:4700:4700::1001'])             ->withTimeout(5.0)
+            ->withNameservers(['2606:4700:4700::1111', '2606:4700:4700::1001'])->withTimeout(5.0)
             ->build();
 
         $tcpConnector = new TcpConnector([]);
         $dnsConnector = new DnsConnector($tcpConnector, $resolver);
 
         $promise = $dnsConnector->connect('tcp://ipv6.google.com:80');
-        
+
         try {
             $connection = $promise->wait();
-            
+
             expect($connection)
                 ->toBeInstanceOf(ConnectionInterface::class);
-                
+
             $connection->close();
         } catch (ConnectionFailedException $e) {
             $this->markTestSkipped('IPv6 might not be available in this environment');
@@ -568,29 +568,14 @@ describe('DnsConnector - Real Network Integration', function () {
 
         $promise1 = $dnsConnector->connect('tcp://cloudflare.com:80');
         $connection1 = $promise1->wait();
-        
+
         expect($connection1)->toBeInstanceOf(ConnectionInterface::class);
         $connection1->close();
 
         $promise2 = $dnsConnector->connect('tcp://cloudflare.com:80');
         $connection2 = $promise2->wait();
-        
+
         expect($connection2)->toBeInstanceOf(ConnectionInterface::class);
         $connection2->close();
-    });
-
-    test('handles connection timeout with real network', function () {
-        $resolver = Dns::new()
-            ->withNameservers(['1.1.1.1'])
-            ->withTimeout(5.0)
-            ->build();
-
-        $tcpConnector = new TcpConnector([]);
-        $dnsConnector = new DnsConnector($tcpConnector, $resolver);
-
-        $promise = $dnsConnector->connect('tcp://google.com:80');
-
-        expect(fn() => $promise->wait())
-            ->toThrow(ConnectionFailedException::class);
     });
 })->skipOnCI();

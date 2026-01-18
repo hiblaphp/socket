@@ -1,7 +1,6 @@
 <?php
 
 use Hibla\EventLoop\Loop;
-use Hibla\EventLoop\ValueObjects\StreamWatcher;
 
 uses()
     ->beforeEach(function () {
@@ -173,11 +172,11 @@ function create_async_tls_client(int $port, array &$clients, array $sslOptions =
 
             if ($result === true) {
                 if ($watcherId !== null) {
-                    Loop::removeStreamWatcher($watcherId);
+                    Loop::removeReadWatcher($watcherId);
                 }
             } elseif ($result === false) {
                 if ($watcherId !== null) {
-                    Loop::removeStreamWatcher($watcherId);
+                    Loop::removeReadWatcher($watcherId);
                 }
             }
             // else: needs more I/O, watcher will retry
@@ -187,10 +186,9 @@ function create_async_tls_client(int $port, array &$clients, array $sslOptions =
         $result = @stream_socket_enable_crypto($client, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
 
         if ($result === 0) {
-            $watcherId = Loop::addStreamWatcher(
+            $watcherId = Loop::addReadWatcher(
                 $client,
-                $enableCrypto,
-                StreamWatcher::TYPE_READ
+                $enableCrypto
             );
         }
     });

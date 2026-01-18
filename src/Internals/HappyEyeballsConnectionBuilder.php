@@ -36,24 +36,33 @@ final class HappyEyeBallsConnectionBuilder
      */
     private const float CONNECTION_ATTEMPT_DELAY = 0.25;
 
-    /** @var array{4: bool, 28: bool} Track resolution status by RecordType value */
+    /**
+     *  @var array<int, PromiseInterface> 
+     */
+    private array $resolverPromises = [];
+
+    /**
+     * @var array<int, PromiseInterface> 
+     */
+    private array $connectionPromises = [];
+
+    /**
+     *  @var list<string> Queue of IP addresses to connect to 
+     */
+    private array $connectQueue = [];
+
+    /**
+     *  @var array<string, mixed> 
+     */
+    private readonly array $parts;
+
+    /**
+     *  @var array{4: bool, 28: bool} Track resolution status by RecordType value 
+     */
     private array $resolved = [
         RecordType::A->value => false,
         RecordType::AAAA->value => false,
     ];
-
-    /** @var array<int, PromiseInterface> */
-    private array $resolverPromises = [];
-
-    /** @var array<int, PromiseInterface> */
-    private array $connectionPromises = [];
-
-    /** @var list<string> Queue of IP addresses to connect to */
-    private array $connectQueue = [];
-
-    private ?string $nextAttemptTimerId = null;
-
-    private ?string $resolutionDelayTimerId = null;
 
     private int $ipsCount = 0;
 
@@ -61,21 +70,23 @@ final class HappyEyeBallsConnectionBuilder
 
     private int $lastErrorFamily = 0;
 
+    private bool $isResolved = false;
+
     private ?string $lastError6 = null;
 
     private ?string $lastError4 = null;
 
-    private bool $isResolved = false;
+    private ?string $nextAttemptTimerId = null;
 
-    /** @var array<string, mixed> */
-    private readonly array $parts;
+    private ?string $resolutionDelayTimerId = null;
 
     public function __construct(
         private readonly ConnectorInterface $connector,
         private readonly ResolverInterface $resolver,
         private readonly string $uri,
         private readonly string $host,
-        array $parts
+        array $parts,
+        private readonly bool $ipv6Check = false
     ) {
         $this->parts = $parts;
     }
@@ -99,10 +110,6 @@ final class HappyEyeBallsConnectionBuilder
 
                 $this->mixIpsIntoConnectQueue($ips);
 
-                // Start next connection attempt if:
-                // 1. No timer is scheduled AND
-                // 2. We have IPs to try AND  
-                // 3. No connection attempts are currently running
                 if (
                     $this->nextAttemptTimerId === null &&
                     $this->connectQueue !== [] &&
@@ -113,26 +120,43 @@ final class HappyEyeBallsConnectionBuilder
             };
         };
 
-        // Start IPv6 (AAAA) resolution immediately
-        $this->resolverPromises[RecordType::AAAA->value] = $this->resolve(RecordType::AAAA, $promise)
-            ->then($lookupResolve(RecordType::AAAA));
+        // Check if IPv6 pre-check is enabled and IPv6 is actually routable
+        if ($this->ipv6Check && !IPv6ConnectivityChecker::isRoutable()) {
+            // Skip IPv6 entirely
+            $this->resolved[RecordType::AAAA->value] = true;
 
-        // Start IPv4 (A) resolution with potential delay per RFC 8305
-        $this->resolverPromises[RecordType::A->value] = $this->resolve(RecordType::A, $promise)
-            ->then(function (array $ips) use ($promise): PromiseInterface|array {
-                if ($this->isResolved) {
-                    return [];
-                }
+            // Start IPv4 (A) resolution immediately without delay
+            $this->resolverPromises[RecordType::A->value] = $this->resolve(RecordType::A, $promise)
+                ->then($lookupResolve(RecordType::A));
+        } else {
+            // Full RFC 8305 Dual Stack implementation
+            // (Either ipv6Check is disabled, or IPv6 is routable)
 
-                // Happy path: IPv6 resolved already or no IPv4 addresses
-                if ($this->resolved[RecordType::AAAA->value] || $ips === []) {
-                    return $ips;
-                }
+            // Start IPv6 (AAAA) resolution immediately
+            $this->resolverPromises[RecordType::AAAA->value] = $this->resolve(RecordType::AAAA, $promise)
+                ->then($lookupResolve(RecordType::AAAA));
 
-                // Delay IPv4 processing per RFC 8305 Section 3
-                return $this->delayIPv4Resolution($ips);
-            })
-            ->then($lookupResolve(RecordType::A));
+            // Start IPv4 (A) resolution with potential delay per RFC 8305
+            $this->resolverPromises[RecordType::A->value] = $this->resolve(RecordType::A, $promise)
+                ->then(function (array $ips) use ($promise): PromiseInterface|array {
+                    if ($this->isResolved) {
+                        return [];
+                    }
+
+                    // Happy path: IPv6 resolved already or no IPv4 addresses
+                    if ($this->resolved[RecordType::AAAA->value] || $ips === []) {
+                        return $ips;
+                    }
+
+                    // Delay IPv4 processing per RFC 8305 Section 3
+                    return $this->delayIPv4Resolution($ips);
+                })
+                ->then($lookupResolve(RecordType::A));
+        }
+
+        $promise->onCancel(function () use ($promise): void {
+            $this->cleanUp();
+        });
 
         $promise->onCancel(function () use ($promise): void {
             $this->cleanUp();
@@ -251,7 +275,7 @@ final class HappyEyeBallsConnectionBuilder
             onFulfilled: function ($connection) use ($index, $promise): void {
                 if ($this->isResolved) {
                     $connection->close();
-                    
+
                     return;
                 }
 
@@ -283,10 +307,6 @@ final class HappyEyeBallsConnectionBuilder
                     $this->lastErrorFamily = 6;
                 }
 
-                // RFC 8305: Do NOT cancel timer on failure
-                // The timer continues running and will start the next attempt
-                // This is parallel racing, not serial fallback
-
                 // Only reject if all attempts exhausted
                 if (
                     $this->hasBeenResolved() &&
@@ -305,7 +325,6 @@ final class HappyEyeBallsConnectionBuilder
         );
 
         // Schedule next attempt per RFC 8305 Section 5
-        // Timer runs independently of connection success/failure
         if (
             $this->nextAttemptTimerId === null &&
             (\count($this->connectQueue) > 0 || !$this->hasBeenResolved())
@@ -333,9 +352,6 @@ final class HappyEyeBallsConnectionBuilder
 
     /**
      * Mix IPs into connection queue using RFC 8305 Section 4 interleaving
-     * 
-     * Alternates between IPv6 and IPv4 addresses to give IPv6 preference
-     * while maintaining fast fallback to IPv4.
      * 
      * @param list<string> $ips
      */
@@ -378,7 +394,6 @@ final class HappyEyeBallsConnectionBuilder
             $uri .= '@';
         }
 
-        // Wrap IPv6 addresses in brackets
         $uri .= str_contains($ip, ':') ? "[{$ip}]" : $ip;
 
         if (isset($parts['port'])) {
@@ -409,38 +424,21 @@ final class HappyEyeBallsConnectionBuilder
     {
         $this->connectQueue = [];
 
-        // Cancel pending connections
         foreach ($this->connectionPromises as $promise) {
             $promise->cancelChain();
         }
         $this->connectionPromises = [];
 
-        // Cancel pending DNS resolutions (IPv4 first if awaiting IPv6 delay)
         foreach (array_reverse($this->resolverPromises) as $promise) {
             $promise->cancelChain();
         }
         $this->resolverPromises = [];
 
-        $this->cancelNextAttempt();
-        $this->cancelResolutionDelay();
-    }
-
-    /**
-     * Cancel the next scheduled connection attempt
-     */
-    private function cancelNextAttempt(): void
-    {
         if ($this->nextAttemptTimerId !== null) {
             Loop::cancelTimer($this->nextAttemptTimerId);
             $this->nextAttemptTimerId = null;
         }
-    }
 
-    /**
-     * Cancel the IPv4 resolution delay timer
-     */
-    private function cancelResolutionDelay(): void
-    {
         if ($this->resolutionDelayTimerId !== null) {
             Loop::cancelTimer($this->resolutionDelayTimerId);
             $this->resolutionDelayTimerId = null;

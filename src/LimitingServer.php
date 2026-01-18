@@ -16,7 +16,9 @@ final class LimitingServer extends EventEmitter implements ServerInterface
     private array $connections = [];
 
     private bool $pauseOnLimit = false;
+
     private bool $autoPaused = false;
+
     private bool $manuPaused = false;
 
     /**
@@ -77,7 +79,7 @@ final class LimitingServer extends EventEmitter implements ServerInterface
 
     private function handleConnection(ConnectionInterface $connection): void
     {
-        if ($this->connectionLimit !== null && count($this->connections) >= $this->connectionLimit) {
+        if ($this->connectionLimit !== null && \count($this->connections) >= $this->connectionLimit) {
             $this->handleError(new ConnectionFailedException(
                 'Connection rejected because server reached connection limit'
             ));

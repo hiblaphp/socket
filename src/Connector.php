@@ -49,7 +49,8 @@ final class Connector implements ConnectorInterface
      *     unix?: bool|ConnectorInterface,
      *     dns?: bool|array<string>|ResolverInterface,
      *     timeout?: bool|float,
-     *     happy_eyeballs?: bool
+     *     happy_eyeballs?: bool,
+     *     ipv6_precheck?: bool
      * } $context Configuration options
      *
      * @throws \InvalidArgumentException for invalid configuration
@@ -63,6 +64,7 @@ final class Connector implements ConnectorInterface
             'dns' => true,
             'timeout' => true,
             'happy_eyeballs' => true,
+            'ipv6_precheck' => false,
         ];
 
         if ($context['timeout'] === true) {
@@ -74,13 +76,13 @@ final class Connector implements ConnectorInterface
             $tcp = $this->buildTcpConnector($context);
             $tcp = $this->applyDnsResolution($tcp, $context);
             $tcp = $this->applyTimeout($tcp, $context);
-            
+
             $connectors['tcp'] = $tcp;
         }
 
         if ($context['tls'] !== false && isset($connectors['tcp'])) {
             $tls = $this->buildTlsConnector($context, $connectors['tcp']);
-            
+
             $connectors['tls'] = $tls;
         }
 
@@ -100,8 +102,8 @@ final class Connector implements ConnectorInterface
 
         if (!isset($this->connectors[$scheme])) {
             return Promise::rejected(new InvalidUriException(
-                sprintf('No connector available for URI scheme "%s" (EINVAL)', $scheme),
-                defined('SOCKET_EINVAL') ? SOCKET_EINVAL : (defined('PCNTL_EINVAL') ? PCNTL_EINVAL : 22)
+                \sprintf('No connector available for URI scheme "%s" (EINVAL)', $scheme),
+                \defined('SOCKET_EINVAL') ? SOCKET_EINVAL : (\defined('PCNTL_EINVAL') ? PCNTL_EINVAL : 22)
             ));
         }
 
@@ -130,7 +132,7 @@ final class Connector implements ConnectorInterface
         }
 
         return new TcpConnector(
-            context: is_array($context['tcp']) ? $context['tcp'] : []
+            context: \is_array($context['tcp']) ? $context['tcp'] : []
         );
     }
 
@@ -143,7 +145,11 @@ final class Connector implements ConnectorInterface
         $resolver = $this->buildResolver($context);
 
         if ($context['happy_eyeballs'] === true) {
-            return new HappyEyeballsConnector($connector, $resolver);
+            return new HappyEyeballsConnector(
+                connector: $connector,
+                resolver: $resolver,
+                ipv6Check: $context['ipv6_precheck'] ?? true
+            );
         }
 
         return new DnsConnector($connector, $resolver);

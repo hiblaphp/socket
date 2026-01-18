@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Hibla\Socket;
 
 use Hibla\EventLoop\Loop;
-use Hibla\EventLoop\ValueObjects\StreamWatcher;
 use Hibla\Promise\Interfaces\PromiseInterface;
 use Hibla\Promise\Promise;
 use Hibla\Socket\Exceptions\ConnectionFailedException;
@@ -89,7 +88,7 @@ final class TcpConnector implements ConnectorInterface
 
         $cleanup = function () use (&$watcherId): void {
             if ($watcherId !== null) {
-                Loop::removeStreamWatcher($watcherId);
+                Loop::removeWriteWatcher($watcherId);
                 $watcherId = null;
             }
         };
@@ -110,10 +109,9 @@ final class TcpConnector implements ConnectorInterface
             }
         };
         
-        $watcherId = Loop::addStreamWatcher(
+        $watcherId = Loop::addWriteWatcher(
             stream: $stream,
-            callback: $watcherCallback,
-            type: StreamWatcher::TYPE_WRITE
+            callback: $watcherCallback
         );
 
         $promise->onCancel(function () use ($stream, $cleanup): void {

@@ -6,7 +6,6 @@ namespace Hibla\Socket;
 
 use Evenement\EventEmitter;
 use Hibla\EventLoop\Loop;
-use Hibla\EventLoop\ValueObjects\StreamWatcher;
 use Hibla\Socket\Exceptions\AcceptFailedException;
 use Hibla\Socket\Exceptions\BindFailedException;
 use Hibla\Socket\Exceptions\InvalidUriException;
@@ -97,7 +96,7 @@ final class TcpServer extends EventEmitter implements ServerInterface
         if (!$this->listening || $this->watcherId === null) {
             return;
         }
-        Loop::removeStreamWatcher($this->watcherId);
+        Loop::removeReadWatcher($this->watcherId);
         $this->watcherId = null;
         $this->listening = false;
     }
@@ -107,11 +106,12 @@ final class TcpServer extends EventEmitter implements ServerInterface
         if ($this->listening || !\is_resource($this->master)) {
             return;
         }
-        $this->watcherId = Loop::addStreamWatcher(
+
+        $this->watcherId = Loop::addReadWatcher(
             stream: $this->master,
             callback: $this->acceptConnection(...),
-            type: StreamWatcher::TYPE_READ
         );
+
         $this->listening = true;
     }
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Hibla\Socket\Internals;
 
 use Hibla\EventLoop\Loop;
-use Hibla\EventLoop\ValueObjects\StreamWatcher;
 use Hibla\Promise\Interfaces\PromiseInterface;
 use Hibla\Promise\Promise;
 use Hibla\Socket\Connection;
@@ -81,7 +80,7 @@ final class StreamEncryption
             if ($result === true) {
                 // Success: Encryption enabled/disabled
                 if ($watcherId !== null) {
-                    Loop::removeStreamWatcher($watcherId);
+                    Loop::removeReadWatcher($watcherId);
                     $watcherId = null;
                 }
                 
@@ -92,7 +91,7 @@ final class StreamEncryption
             } elseif ($result === false) {
                 // Failure: Handshake failed permanently
                 if ($watcherId !== null) {
-                    Loop::removeStreamWatcher($watcherId);
+                    Loop::removeReadWatcher($watcherId);
                     $watcherId = null;
                 }
                 
@@ -115,10 +114,9 @@ final class StreamEncryption
             }
         };
 
-        $watcherId = Loop::addStreamWatcher(
+        $watcherId = Loop::addReadWatcher(
             stream: $socket,
             callback: $toggleCrypto,
-            type: StreamWatcher::TYPE_READ
         );
 
         // If we are the client, start the handshake immediately
@@ -128,7 +126,7 @@ final class StreamEncryption
 
         $promise->onCancel(function () use (&$watcherId): void {
             if ($watcherId !== null) {
-                Loop::removeStreamWatcher($watcherId);
+                Loop::removeReadWatcher($watcherId);
                 $watcherId = null;
             }
         });

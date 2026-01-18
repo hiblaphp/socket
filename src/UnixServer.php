@@ -6,7 +6,7 @@ namespace Hibla\Socket;
 
 use Evenement\EventEmitter;
 use Hibla\EventLoop\Loop;
-use Hibla\EventLoop\ValueObjects\StreamWatcher;
+
 use Hibla\Socket\Exceptions\AcceptFailedException;
 use Hibla\Socket\Exceptions\AddressInUseException;
 use Hibla\Socket\Exceptions\BindFailedException;
@@ -39,7 +39,7 @@ final class UnixServer extends EventEmitter implements ServerInterface
             if ($testSocket !== false) {
                 fclose($testSocket);
                 throw new AddressInUseException(
-                    sprintf('Unix domain socket "%s" is already in use', $path)
+                    \sprintf('Unix domain socket "%s" is already in use', $path)
                 );
             }
             @unlink($this->socketPath);
@@ -90,21 +90,20 @@ final class UnixServer extends EventEmitter implements ServerInterface
             return;
         }
 
-        Loop::removeStreamWatcher($this->watcherId);
+        Loop::removeReadWatcher($this->watcherId);
         $this->watcherId = null;
         $this->listening = false;
     }
 
     public function resume(): void
     {
-        if ($this->listening || !is_resource($this->master)) {
+        if ($this->listening || !\is_resource($this->master)) {
             return;
         }
 
-        $this->watcherId = Loop::addStreamWatcher(
+        $this->watcherId = Loop::addReadWatcher(
             stream: $this->master,
             callback: $this->acceptConnection(...),
-            type: StreamWatcher::TYPE_READ
         );
 
         $this->listening = true;

@@ -27,7 +27,8 @@ final class HappyEyeBallsConnector implements ConnectorInterface
 {
     public function __construct(
         private readonly ConnectorInterface $connector,
-        private readonly ResolverInterface $resolver
+        private readonly ResolverInterface $resolver,
+        private readonly bool $ipv6Check = false
     ) {}
 
     /**
@@ -66,7 +67,8 @@ final class HappyEyeBallsConnector implements ConnectorInterface
             $this->resolver,
             $uri,
             $host,
-            $parts
+            $parts,
+            $this->ipv6Check
         );
 
         return $builder->connect();

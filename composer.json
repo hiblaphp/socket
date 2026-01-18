@@ -17,7 +17,9 @@
         "hiblaphp/event-loop": "dev-main",
         "hiblaphp/stream": "dev-main",
         "hiblaphp/promise": "dev-main",
-        "hiblaphp/dns": "dev-main"
+        "hiblaphp/dns": "dev-main",
+        "hiblaphp/http-client": "dev-main",
+        "react/socket": "^1.17"
     },
     "require-dev": {
         "pestphp/pest": "^4.0",

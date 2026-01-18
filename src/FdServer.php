@@ -6,7 +6,6 @@ namespace Hibla\Socket;
 
 use Evenement\EventEmitter;
 use Hibla\EventLoop\Loop;
-use Hibla\EventLoop\ValueObjects\StreamWatcher;
 use Hibla\Socket\Exceptions\AcceptFailedException;
 use Hibla\Socket\Exceptions\BindFailedException;
 use Hibla\Socket\Exceptions\InvalidUriException;
@@ -87,7 +86,7 @@ final class FdServer extends EventEmitter implements ServerInterface
             return;
         }
 
-        Loop::removeStreamWatcher($this->watcherId);
+        Loop::removeReadWatcher($this->watcherId);
         $this->watcherId = null;
         $this->listening = false;
     }
@@ -98,10 +97,9 @@ final class FdServer extends EventEmitter implements ServerInterface
             return;
         }
 
-        $this->watcherId = Loop::addStreamWatcher(
+        $this->watcherId = Loop::addReadWatcher(
             stream: $this->master,
             callback: $this->acceptConnection(...),
-            type: StreamWatcher::TYPE_READ
         );
         $this->listening = true;
     }

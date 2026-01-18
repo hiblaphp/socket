@@ -20,7 +20,7 @@ describe('HappyEyeBallsConnector', function () {
     test('connects directly when URI contains IPv4 address', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolver();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $connection = new MockConnection('tcp://127.0.0.1:8080');
 
         $mockConnector->setImmediateSuccess($connection);
@@ -36,7 +36,7 @@ describe('HappyEyeBallsConnector', function () {
     test('connects directly when URI contains IPv6 address', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolver();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $connection = new MockConnection('tcp://[::1]:8080');
 
         $mockConnector->setImmediateSuccess($connection);
@@ -52,7 +52,7 @@ describe('HappyEyeBallsConnector', function () {
     test('adds scheme when missing', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolver();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockConnector->setImmediateSuccess(new MockConnection());
 
@@ -64,7 +64,7 @@ describe('HappyEyeBallsConnector', function () {
     test('rejects with invalid URI', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolver();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $promise = $connector->connect('://invalid');
 
@@ -75,7 +75,7 @@ describe('HappyEyeBallsConnector', function () {
     test('rejects with URI missing host', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolver();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $promise = $connector->connect('tcp://');
 
@@ -86,7 +86,7 @@ describe('HappyEyeBallsConnector', function () {
     test('resolves IPv4 and IPv6 in parallel', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $connection = new MockConnection('tcp://93.184.216.34:80');
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, ['2606:2800:220:1:248:1893:25c8:1946']);
@@ -104,7 +104,7 @@ describe('HappyEyeBallsConnector', function () {
     test('prefers IPv6 over IPv4 when both available', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $ipv6Connection = new MockConnection('tcp://[2606:2800:220:1:248:1893:25c8:1946]:80');
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, ['2606:2800:220:1:248:1893:25c8:1946']);
@@ -122,7 +122,7 @@ describe('HappyEyeBallsConnector', function () {
     test('falls back to IPv4 when IPv6 fails', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $ipv4Connection = new MockConnection('tcp://93.184.216.34:80');
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, ['2606:2800:220:1:248:1893:25c8:1946']);
@@ -144,7 +144,7 @@ describe('HappyEyeBallsConnector', function () {
     test('delays IPv4 resolution by 50ms per RFC 8305', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $connection = new MockConnection();
 
         $startTime = microtime(true);
@@ -166,7 +166,7 @@ describe('HappyEyeBallsConnector', function () {
     test('attempts connections with 250ms delay per RFC 8305', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, [
             '2606:2800:220:1::1',
@@ -198,7 +198,7 @@ describe('HappyEyeBallsConnector', function () {
     test('interleaves IPv4 and IPv6 connection attempts', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, [
             '2606:2800:220:1::1',
@@ -248,7 +248,7 @@ describe('HappyEyeBallsConnector', function () {
     test('cancellation during DNS lookup', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setHangForType(RecordType::AAAA);
         $mockResolver->setHangForType(RecordType::A);
@@ -262,7 +262,7 @@ describe('HappyEyeBallsConnector', function () {
     test('cancellation during connection attempts', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, ['2606:2800:220:1::1']);
         $mockResolver->setImmediateSuccessForType(RecordType::A, ['93.184.216.34']);
@@ -280,7 +280,7 @@ describe('HappyEyeBallsConnector', function () {
     test('both DNS lookups fail', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setFailureForType(RecordType::AAAA, new RecordNotFoundException('IPv6 lookup failed'));
         $mockResolver->setFailureForType(RecordType::A, new RecordNotFoundException('IPv4 lookup failed'));
@@ -294,7 +294,7 @@ describe('HappyEyeBallsConnector', function () {
     test('all connection attempts fail', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, ['2606:2800:220:1::1']);
         $mockResolver->setImmediateSuccessForType(RecordType::A, ['93.184.216.34']);
@@ -317,7 +317,7 @@ describe('HappyEyeBallsConnector', function () {
     test('error message includes both IPv4 and IPv6 errors', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, ['2606:2800:220:1::1']);
         $mockResolver->setImmediateSuccessForType(RecordType::A, ['93.184.216.34']);
@@ -346,7 +346,7 @@ describe('HappyEyeBallsConnector', function () {
     test('preserves URI components in connection attempts', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $connection = new MockConnection();
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, []);
@@ -367,7 +367,7 @@ describe('HappyEyeBallsConnector', function () {
     test('wraps IPv6 addresses in brackets', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
         $connection = new MockConnection();
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, ['2606:2800:220:1::1']);
@@ -382,7 +382,7 @@ describe('HappyEyeBallsConnector', function () {
     test('multiple IPs shuffled for randomization', function () {
         $mockConnector = new MockConnectorWithFailureTracking();
         $mockResolver = new MockResolverWithTypes();
-        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver);
+        $connector = new HappyEyeBallsConnector($mockConnector, $mockResolver,false);
 
         $mockResolver->setImmediateSuccessForType(RecordType::AAAA, [
             '2606:2800:220:1::1',

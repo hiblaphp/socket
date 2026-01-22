@@ -43,15 +43,7 @@ final class Connector implements ConnectorInterface
     /**
      * Creates a new Connector instance.
      *
-     * @param array{
-     *     tcp?: bool|array|ConnectorInterface,
-     *     tls?: bool|array|ConnectorInterface,
-     *     unix?: bool|ConnectorInterface,
-     *     dns?: bool|array<string>|ResolverInterface,
-     *     timeout?: bool|float,
-     *     happy_eyeballs?: bool,
-     *     ipv6_precheck?: bool
-     * } $context Configuration options
+     * @param array<string, mixed> $context Configuration options
      *
      * @throws \InvalidArgumentException for invalid configuration
      */
@@ -116,20 +108,31 @@ final class Connector implements ConnectorInterface
             return 'tcp';
         }
 
-        return substr($uri, 0, strpos($uri, '://'));
+        $pos = strpos($uri, '://');
+        return $pos !== false ? substr($uri, 0, $pos) : 'tcp';
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function buildTcpConnector(array $context): ConnectorInterface
     {
         if ($context['tcp'] instanceof ConnectorInterface) {
             return $context['tcp'];
         }
 
-        return new TcpConnector(
-            context: \is_array($context['tcp']) ? $context['tcp'] : []
-        );
+        $tcpContext = \is_array($context['tcp']) ? $context['tcp'] : [];
+        
+        // Ensure the array has string keys for PHPStan
+        /** @var array<string, mixed> $typedContext */
+        $typedContext = $tcpContext;
+
+        return new TcpConnector(context: $typedContext);
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function applyDnsResolution(ConnectorInterface $connector, array $context): ConnectorInterface
     {
         if ($context['dns'] === false) {
@@ -139,16 +142,19 @@ final class Connector implements ConnectorInterface
         $resolver = $this->buildResolver($context);
 
         if ($context['happy_eyeballs'] === true) {
-            return new HappyEyeballsConnector(
+            return new HappyEyeBallsConnector(
                 connector: $connector,
                 resolver: $resolver,
-                ipv6Check: $context['ipv6_precheck'] ?? true
+                ipv6Check: (bool) ($context['ipv6_precheck'] ?? true)
             );
         }
 
         return new DnsConnector($connector, $resolver);
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function buildResolver(array $context): ResolverInterface
     {
         if ($context['dns'] instanceof ResolverInterface) {
@@ -158,7 +164,9 @@ final class Connector implements ConnectorInterface
         $builder = Dns::new();
 
         if (\is_array($context['dns'])) {
-            $builder = $builder->withNameservers($context['dns']);
+            /** @var array<string> $nameservers */
+            $nameservers = $context['dns'];
+            $builder = $builder->withNameservers($nameservers);
         }
 
         $builder = $builder->withCache();
@@ -166,27 +174,51 @@ final class Connector implements ConnectorInterface
         return $builder->build();
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function applyTimeout(ConnectorInterface $connector, array $context): ConnectorInterface
     {
-        if ($context['timeout'] === false || $context['timeout'] <= 0) {
+        $timeout = $context['timeout'];
+        
+        if ($timeout === false) {
             return $connector;
         }
 
-        return new TimeoutConnector($connector, (float) $context['timeout']);
+        if (\is_numeric($timeout)) {
+            $timeoutFloat = (float) $timeout;
+            if ($timeoutFloat <= 0) {
+                return $connector;
+            }
+            return new TimeoutConnector($connector, $timeoutFloat);
+        }
+
+        return $connector;
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function buildTlsConnector(array $context, ConnectorInterface $baseConnector): ConnectorInterface
     {
         if ($context['tls'] instanceof ConnectorInterface) {
             return $context['tls'];
         }
 
+        $tlsContext = \is_array($context['tls']) ? $context['tls'] : [];
+        
+        /** @var array<string, mixed> $typedContext */
+        $typedContext = $tlsContext;
+
         return new SecureConnector(
             connector: $baseConnector,
-            context: \is_array($context['tls']) ? $context['tls'] : []
+            context: $typedContext
         );
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function buildUnixConnector(array $context): ConnectorInterface
     {
         if ($context['unix'] instanceof ConnectorInterface) {

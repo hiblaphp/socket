@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Hibla\Promise\Exceptions\PromiseCancelledException;
+use Hibla\Promise\Exceptions\CancelledException;
 use Hibla\Socket\Exceptions\TimeoutException;
 use Hibla\Socket\TimeoutConnector;
 use Tests\Mocks\MockConnection;
@@ -101,7 +101,7 @@ describe('TimeoutConnector', function () {
         expect($promise->isCancelled())->toBeTrue();
 
         expect(fn () => $promise->wait())
-            ->toThrow(PromiseCancelledException::class)
+            ->toThrow(CancelledException::class)
         ;
     });
 

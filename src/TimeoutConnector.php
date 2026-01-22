@@ -8,6 +8,7 @@ use Hibla\EventLoop\Loop;
 use Hibla\Promise\Interfaces\PromiseInterface;
 use Hibla\Promise\Promise;
 use Hibla\Socket\Exceptions\TimeoutException;
+use Hibla\Socket\Interfaces\ConnectionInterface;
 use Hibla\Socket\Interfaces\ConnectorInterface;
 use Throwable;
 
@@ -35,10 +36,12 @@ final class TimeoutConnector implements ConnectorInterface
      */
     public function connect(string $uri): PromiseInterface
     {
-        /** @var Promise $promise */
+        /** @var Promise<ConnectionInterface> $promise */
         $promise = new Promise();
 
         $pendingConnection = $this->connector->connect($uri);
+        
+        /** @var string|null $timerId */
         $timerId = null;
 
         $cleanup = function () use (&$timerId): void {
@@ -63,9 +66,11 @@ final class TimeoutConnector implements ConnectorInterface
                 $cleanup();
                 $promise->resolve($connection);
             },
-            function (Throwable $e) use ($promise, $cleanup) {
+            function (mixed $e) use ($promise, $cleanup) {
                 $cleanup();
-                $promise->reject($e);
+                if ($e instanceof Throwable) {
+                    $promise->reject($e);
+                }
             }
         );
 

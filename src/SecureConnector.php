@@ -33,6 +33,9 @@ final class SecureConnector implements ConnectorInterface
 {
     private readonly StreamEncryption $streamEncryption;
 
+    /**
+     * @param array<string, mixed> $context
+     */
     public function __construct(
         private readonly ConnectorInterface $connector,
         private readonly array $context = []
@@ -50,7 +53,7 @@ final class SecureConnector implements ConnectorInterface
         }
 
         $parts = parse_url($uri);
-        if (! $parts || ! isset($parts['scheme']) || $parts['scheme'] !== 'tls') {
+        if ($parts === false || ! isset($parts['scheme']) || $parts['scheme'] !== 'tls') {
             throw new InvalidUriException(
                 \sprintf('Given URI "%s" is invalid (EINVAL)', $uri)
             );
@@ -61,7 +64,7 @@ final class SecureConnector implements ConnectorInterface
         /** @var Promise<ConnectionInterface> $promise */
         $promise = new Promise();
 
-        /** @var PromiseInterface|null $currentPendingOperation */
+        /** @var PromiseInterface<ConnectionInterface>|PromiseInterface<Connection>|null $currentPendingOperation */
         $currentPendingOperation = null;
 
         $currentPendingOperation = $this->connector->connect($plainUri);
@@ -92,12 +95,12 @@ final class SecureConnector implements ConnectorInterface
                     onFulfilled: function (Connection $secureConnection) use ($promise) {
                         $promise->resolve($secureConnection);
                     },
-                    onRejected: function (Throwable $e) use ($promise, $connection, $uri) {
+                    onRejected: function (mixed $e) use ($promise, $connection, $uri) {
                         $connection->close();
 
                         if ($e instanceof EncryptionFailedException) {
                             $promise->reject($e);
-                        } else {
+                        } elseif ($e instanceof Throwable) {
                             $promise->reject(new EncryptionFailedException(
                                 \sprintf('Connection to %s failed during TLS handshake: %s', $uri, $e->getMessage()),
                                 (int) $e->getCode(),
@@ -107,19 +110,19 @@ final class SecureConnector implements ConnectorInterface
                     }
                 );
             },
-            onRejected: function (Throwable $e) use ($promise, $uri) {
-                $promise->reject(new ConnectionFailedException(
-                    \sprintf('Connection to %s failed: %s', $uri, $e->getMessage()),
-                    (int) $e->getCode(),
-                    $e
-                ));
+            onRejected: function (mixed $e) use ($promise, $uri) {
+                if ($e instanceof Throwable) {
+                    $promise->reject(new ConnectionFailedException(
+                        \sprintf('Connection to %s failed: %s', $uri, $e->getMessage()),
+                        (int) $e->getCode(),
+                        $e
+                    ));
+                }
             }
         );
 
         $promise->onCancel(function () use (&$currentPendingOperation) {
-            if ($currentPendingOperation instanceof PromiseInterface) {
-                $currentPendingOperation->cancelChain();
-            }
+            $currentPendingOperation->cancelChain();
         });
 
         return $promise;

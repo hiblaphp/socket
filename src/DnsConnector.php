@@ -10,6 +10,7 @@ use Hibla\Promise\Promise;
 use Hibla\Socket\Exceptions\ConnectionFailedException;
 use Hibla\Socket\Exceptions\InvalidUriException;
 use Hibla\Socket\Interfaces\ConnectorInterface;
+use Hibla\Socket\Interfaces\ConnectionInterface;
 
 /**
  * A connector that transparently resolves hostnames to IP addresses.
@@ -63,7 +64,7 @@ final class DnsConnector implements ConnectorInterface
             return $this->connector->connect($original);
         }
 
-        /** @var Promise $promise */
+        /** @var Promise<ConnectionInterface> $promise */
         $promise = new Promise();
 
         // Perform DNS resolution
@@ -85,31 +86,35 @@ final class DnsConnector implements ConnectorInterface
                     onFulfilled: function ($connection) use ($promise): void {
                         $promise->resolve($connection);
                     },
-                    onRejected: function (\Throwable $e) use ($promise, $original): void {
-                        if ($e instanceof ConnectionFailedException) {
-                            $message = preg_replace(
-                                '/^(Connection to [^ ]+)(\?hostname=[^ &]+)?/',
-                                '$1',
-                                $e->getMessage()
-                            );
+                    onRejected: function (mixed $e) use ($promise, $original): void {
+                        if ($e instanceof \Throwable) {
+                            if ($e instanceof ConnectionFailedException) {
+                                $message = preg_replace(
+                                    '/^(Connection to [^ ]+)(\?hostname=[^ &]+)?/',
+                                    '$1',
+                                    $e->getMessage()
+                                );
 
-                            $e = new ConnectionFailedException(
-                                \sprintf('Connection to %s failed: %s', $original, $message),
-                                $e->getCode(),
-                                $e
-                            );
+                                $e = new ConnectionFailedException(
+                                    \sprintf('Connection to %s failed: %s', $original, $message),
+                                    $e->getCode(),
+                                    $e
+                                );
+                            }
+
+                            $promise->reject($e);
                         }
-
-                        $promise->reject($e);
                     }
                 );
             },
-            function (\Throwable $e) use ($promise, $original): void {
-                $promise->reject(new ConnectionFailedException(
-                    \sprintf('Connection to %s failed during DNS lookup: %s', $original, $e->getMessage()),
-                    0,
-                    $e
-                ));
+            function (mixed $e) use ($promise, $original): void {
+                if ($e instanceof \Throwable) {
+                    $promise->reject(new ConnectionFailedException(
+                        \sprintf('Connection to %s failed during DNS lookup: %s', $original, $e->getMessage()),
+                        0,
+                        $e
+                    ));
+                }
             }
         );
 
@@ -140,13 +145,13 @@ final class DnsConnector implements ConnectorInterface
     {
         $uri = '';
 
-        if (isset($parts['scheme'])) {
+        if (isset($parts['scheme']) && is_string($parts['scheme'])) {
             $uri .= $parts['scheme'] . '://';
         }
 
-        if (isset($parts['user'])) {
+        if (isset($parts['user']) && is_string($parts['user'])) {
             $uri .= $parts['user'];
-            if (isset($parts['pass'])) {
+            if (isset($parts['pass']) && is_string($parts['pass'])) {
                 $uri .= ':' . $parts['pass'];
             }
             $uri .= '@';
@@ -158,21 +163,21 @@ final class DnsConnector implements ConnectorInterface
             $uri .= $ip;
         }
 
-        if (isset($parts['port'])) {
+        if (isset($parts['port']) && is_int($parts['port'])) {
             $uri .= ':' . $parts['port'];
         }
 
-        if (isset($parts['path'])) {
+        if (isset($parts['path']) && is_string($parts['path'])) {
             $uri .= $parts['path'];
         }
 
         $uri .= '?hostname=' . rawurlencode($host);
 
-        if (isset($parts['query'])) {
+        if (isset($parts['query']) && is_string($parts['query'])) {
             $uri .= '&' . $parts['query'];
         }
 
-        if (isset($parts['fragment'])) {
+        if (isset($parts['fragment']) && is_string($parts['fragment'])) {
             $uri .= '#' . $parts['fragment'];
         }
 

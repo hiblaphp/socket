@@ -11,6 +11,7 @@ use Hibla\Socket\Exceptions\ConnectionFailedException;
 use Hibla\Socket\Exceptions\InvalidUriException;
 use Hibla\Socket\Interfaces\ConnectionInterface;
 use Hibla\Socket\Interfaces\ConnectorInterface;
+use Socket;
 
 /**
  * A connector for establishing asynchronous, non-blocking TCP/IP streaming connections.
@@ -23,10 +24,12 @@ use Hibla\Socket\Interfaces\ConnectorInterface;
  */
 final class TcpConnector implements ConnectorInterface
 {
+    /**
+     * @param array<string, mixed> $context
+     */
     public function __construct(
         private readonly array $context = []
-    ) {
-    }
+    ) {}
 
     /**
      * {@inheritDoc}
@@ -38,7 +41,7 @@ final class TcpConnector implements ConnectorInterface
         }
 
         $parts = parse_url($uri);
-        if (! $parts || ! isset($parts['scheme'], $parts['host'], $parts['port']) || $parts['scheme'] !== 'tcp') {
+        if ($parts === false || ! isset($parts['scheme'], $parts['host'], $parts['port']) || $parts['scheme'] !== 'tcp') {
             throw new InvalidUriException(
                 \sprintf('Invalid URI "%s" given (expected format: tcp://host:port)', $uri)
             );
@@ -62,13 +65,15 @@ final class TcpConnector implements ConnectorInterface
             $context['ssl'] = [
                 'SNI_enabled' => true,
                 'peer_name' => $args['hostname'],
-                ...($context['ssl'] ?? []),
             ];
         }
 
         $remote = 'tcp://' . $parts['host'] . ':' . $parts['port'];
 
         $contextOptions = stream_context_create($context);
+
+        $errno = null;
+        $errstr = null;
 
         set_error_handler(static function (int $code, string $message) use (&$errno, &$errstr): bool {
             $errno = $code;
@@ -97,6 +102,8 @@ final class TcpConnector implements ConnectorInterface
 
         /** @var Promise<ConnectionInterface> $promise */
         $promise = new Promise();
+
+        /** @var string|null $watcherId */
         $watcherId = null;
 
         $cleanup = function () use (&$watcherId): void {
@@ -149,15 +156,22 @@ final class TcpConnector implements ConnectorInterface
 
         if (function_exists('socket_import_stream')) {
             $socket = socket_import_stream($stream);
-            $errno = socket_get_option($socket, SOL_SOCKET, SO_ERROR);
-            $errstr = socket_strerror($errno);
+
+            if ($socket instanceof Socket) {
+                $errorCode = socket_get_option($socket, SOL_SOCKET, SO_ERROR);
+
+                if (\is_int($errorCode)) {
+                    $errno = $errorCode;
+                    $errstr = socket_strerror($errno);
+                }
+            }
 
             return [$errno, $errstr];
         }
 
         if (PHP_OS_FAMILY === 'Linux') {
             set_error_handler(static function (int $_, string $error) use (&$errno, &$errstr): bool {
-                if (preg_match('/errno=(\d+) (.+)/', $error, $m)) {
+                if (preg_match('/errno=(\d+) (.+)/', $error, $m) === 1) {
                     $errno = (int) $m[1];
                     $errstr = $m[2];
                 }

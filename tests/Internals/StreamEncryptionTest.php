@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Hibla\EventLoop\Loop;
-use Hibla\Promise\Exceptions\PromiseCancelledException;
+use Hibla\Promise\Exceptions\CancelledException;
 use Hibla\Socket\Connection;
 use Hibla\Socket\Internals\StreamEncryption;
 
@@ -397,7 +397,7 @@ describe('Stream Encryption', function () {
 
         $promise->cancel();
 
-        expect(fn () => $promise->wait())->toThrow(PromiseCancelledException::class);
+        expect(fn () => $promise->wait())->toThrow(CancelledException::class);
     });
 
     it('handles multiple sequential handshake attempts', function () use (&$certFile, &$server, &$client, &$connection) {
@@ -496,7 +496,7 @@ describe('Stream Encryption', function () {
         $promise = $encryption->enable($connection);
 
         $promise->cancel();
-        expect(fn () => $promise->wait())->toThrow(PromiseCancelledException::class);
+        expect(fn () => $promise->wait())->toThrow(CancelledException::class);
         expect(is_resource($connection->getResource()))->toBeTrue();
     });
 

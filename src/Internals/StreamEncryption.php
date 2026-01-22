@@ -49,6 +49,9 @@ final class StreamEncryption
         return $this->toggle($connection, false);
     }
 
+    /**
+     * @return PromiseInterface<Connection>
+     */
     private function toggle(Connection $connection, bool $enable): PromiseInterface
     {
         // Pause actual stream instance to continue operation on raw stream socket
@@ -58,19 +61,30 @@ final class StreamEncryption
         $socket = $connection->getResource();
 
         $context = stream_context_get_options($socket);
-        $method = $context['ssl']['crypto_method'] ?? $this->method;
+
+        $method = $this->method;
+        if (isset($context['ssl']) && \is_array($context['ssl'])) {
+            $cryptoMethod = $context['ssl']['crypto_method'] ?? null;
+            if (\is_int($cryptoMethod)) {
+                $method = $cryptoMethod;
+            }
+        }
 
         /** @var Promise<Connection> $promise */
         $promise = new Promise();
+        
+        /** @var string|null $watcherId */
         $watcherId = null;
 
         $toggleCrypto = function () use ($socket, $promise, $enable, $method, &$watcherId, $connection): void {
             $error = null;
-            set_error_handler(function (int $_, string $msg) use (&$error) {
+
+            set_error_handler(function (int $errno, string $msg, string $file = '', int $line = 0) use (&$error): bool {
                 $error = str_replace(["\r", "\n"], ' ', subject: $msg);
                 if (($pos = strpos($error, '): ')) !== false) {
                     $error = substr($error, $pos + 3);
                 }
+                return true; 
             });
 
             $result = stream_socket_enable_crypto($socket, $enable, $method);
@@ -87,7 +101,6 @@ final class StreamEncryption
                 $connection->encryptionEnabled = $enable;
                 $connection->resume();
                 $promise->resolve($connection);
-
             } elseif ($result === false) {
                 // Failure: Handshake failed permanently
                 if ($watcherId !== null) {

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Hibla\EventLoop\Loop;
-use Hibla\Promise\Exceptions\PromiseCancelledException;
+use Hibla\Promise\Exceptions\CancelledException;
 use Hibla\Socket\Connection;
 use Hibla\Socket\Exceptions\ConnectionFailedException;
 use Hibla\Socket\Exceptions\EncryptionFailedException;
@@ -384,7 +384,7 @@ describe('Secure Connector', function () {
             Loop::run();
 
             expect(fn () => $promise->wait())
-                ->toThrow(PromiseCancelledException::class, 'Cannot wait on a cancelled promise')
+                ->toThrow(CancelledException::class, 'Cannot wait on a cancelled promise')
             ;
         });
     });

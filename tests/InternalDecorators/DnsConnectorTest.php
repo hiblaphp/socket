@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Hibla\Dns\Dns;
 use Hibla\Dns\Exceptions\RecordNotFoundException;
-use Hibla\Promise\Exceptions\PromiseCancelledException;
+use Hibla\Promise\Exceptions\CancelledException;
 use Hibla\Socket\DnsConnector;
 use Hibla\Socket\Exceptions\ConnectionFailedException;
 use Hibla\Socket\Exceptions\InvalidUriException;
@@ -466,7 +466,7 @@ describe('DnsConnector', function () {
         }
     });
 
-    test('cancellation throws PromiseCancelledException when waiting', function () {
+    test('cancellation throws CancelledException when waiting', function () {
         $mockConnector = new MockConnector();
         $mockResolver = new MockResolver();
         $dnsConnector = new DnsConnector($mockConnector, $mockResolver);
@@ -477,7 +477,7 @@ describe('DnsConnector', function () {
         $promise->cancel();
 
         expect(fn () => $promise->wait())
-            ->toThrow(PromiseCancelledException::class, 'Cannot wait on a cancelled promise')
+            ->toThrow(CancelledException::class, 'Cannot wait on a cancelled promise')
         ;
     });
 });

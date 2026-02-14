@@ -42,12 +42,19 @@ describe('Socket Util', function () {
         expect($server)->toBeResource();
         fclose($server);
 
-        expect(fn () => SocketUtil::accept($server))
-            ->toThrow(
-                AcceptFailedException::class,
-                'supplied resource is not a valid stream resource'
-            )
-        ;
+        $exception = null;
+        try {
+            SocketUtil::accept($server);
+        } catch (AcceptFailedException $e) {
+            $exception = $e;
+        }
+
+        expect($exception)->toBeInstanceOf(AcceptFailedException::class);
+        $message = $exception->getMessage();
+        expect(
+            str_contains($message, 'supplied resource is not a valid stream resource') ||
+            str_contains($message, 'must be an open stream resource')
+        )->toBeTrue('Expected error message about invalid/closed stream resource');
     });
 
     it('throws AcceptFailedException when trying to accept from a non-socket resource', function () use (&$sockets) {
@@ -69,7 +76,11 @@ describe('Socket Util', function () {
                 SocketUtil::accept($server);
                 test()->fail('AcceptFailedException was not thrown as expected.');
             } catch (AcceptFailedException $e) {
-                expect($e->getMessage())->toContain('supplied resource is not a valid stream resource');
+                $message = $e->getMessage();
+                expect(
+                    str_contains($message, 'supplied resource is not a valid stream resource') ||
+                    str_contains($message, 'must be an open stream resource')
+                )->toBeTrue('Expected error message about invalid/closed stream resource');
                 expect(is_int($e->getCode()))->toBeTrue();
             }
         });

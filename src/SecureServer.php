@@ -109,11 +109,7 @@ final class SecureServer extends EventEmitter implements ServerInterface
                 onFulfilled: function (Connection $secureConnection) {
                     $this->emit('connection', [$secureConnection]);
                 },
-                onRejected: function (mixed $error) use ($connection, $remote): void {
-                    if (! $error instanceof Throwable) {
-                        $error = new EncryptionFailedException('Unknown error during TLS handshake');
-                    }
-
+                onRejected: function (Throwable $error) use ($connection, $remote): void {
                     $wrappedError = new EncryptionFailedException(
                         \sprintf('Connection from %s failed during TLS handshake: %s', $remote, $error->getMessage()),
                         (int) $error->getCode(),

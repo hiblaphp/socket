@@ -159,7 +159,8 @@ describe('Socket Server', function () {
             $port = get_free_port();
             $server = new SocketServer('127.0.0.1:' . $port);
 
-            set_error_handler(function () {});
+            set_error_handler(function () {
+            });
             expect(fn () => new SocketServer('127.0.0.1:' . $port))->toThrow(BindFailedException::class);
             restore_error_handler();
         })->skipOnWindows();

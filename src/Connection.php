@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Hibla\Socket;
 
 use Evenement\EventEmitter;
+use Hibla\Promise\Interfaces\PromiseInterface;
 use Hibla\Socket\Interfaces\ConnectionInterface;
+use Hibla\Socket\Internals\StreamEncryption;
 use Hibla\Stream\DuplexResourceStream;
 use Hibla\Stream\Interfaces\WritableStreamInterface;
 use Hibla\Stream\Util;
@@ -88,6 +90,7 @@ final class Connection extends EventEmitter implements ConnectionInterface
 
     /**
      * Exposes the underlying stream resource.
+     *
      * @internal Used by StreamEncryption
      * @return resource
      */
@@ -96,12 +99,23 @@ final class Connection extends EventEmitter implements ConnectionInterface
         return $this->resource;
     }
 
-    public function handleClose(): void
+    /**
+     * Enables SSL/TLS encryption on the connection.
+     *
+     * @internal This is rarely used in practice, this is useful for client that need mid flight upgrade from tcp to tls like mysql client
+     * @param array<string, mixed> $sslOptions
+     * @param bool $isServer
+     * @return PromiseInterface<Connection>
+     */
+    public function enableEncryption(array $sslOptions = [], bool $isServer = false): PromiseInterface
     {
-        if (! \is_resource($this->resource)) {
-            return;
+        foreach ($sslOptions as $option => $value) {
+            stream_context_set_option($this->resource, 'ssl', $option, $value);
         }
-        @\stream_socket_shutdown($this->resource, STREAM_SHUT_RDWR);
+
+        $encryption = new StreamEncryption(isServer: $isServer);
+
+        return $encryption->enable($this);
     }
 
     public function getRemoteAddress(): ?string
@@ -123,6 +137,14 @@ final class Connection extends EventEmitter implements ConnectionInterface
         }
 
         return $this->parseAddress(\stream_socket_get_name($this->resource, false));
+    }
+
+    private function handleClose(): void
+    {
+        if (! \is_resource($this->resource)) {
+            return;
+        }
+        @\stream_socket_shutdown($this->resource, STREAM_SHUT_RDWR);
     }
 
     private function parseAddress(string|false $address): ?string

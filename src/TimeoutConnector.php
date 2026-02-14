@@ -66,11 +66,9 @@ final class TimeoutConnector implements ConnectorInterface
                 $cleanup();
                 $promise->resolve($connection);
             },
-            function (mixed $e) use ($promise, $cleanup) {
+            function (Throwable $e) use ($promise, $cleanup) {
                 $cleanup();
-                if ($e instanceof Throwable) {
-                    $promise->reject($e);
-                }
+                $promise->reject($e);
             }
         );
 

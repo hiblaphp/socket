@@ -110,14 +110,12 @@ final class SecureConnector implements ConnectorInterface
                     }
                 );
             },
-            onRejected: function (mixed $e) use ($promise, $uri) {
-                if ($e instanceof Throwable) {
-                    $promise->reject(new ConnectionFailedException(
-                        \sprintf('Connection to %s failed: %s', $uri, $e->getMessage()),
-                        (int) $e->getCode(),
-                        $e
-                    ));
-                }
+            onRejected: function (Throwable $e) use ($promise, $uri) {
+                $promise->reject(new ConnectionFailedException(
+                    \sprintf('Connection to %s failed: %s', $uri, $e->getMessage()),
+                    (int) $e->getCode(),
+                    $e
+                ));
             }
         );
 

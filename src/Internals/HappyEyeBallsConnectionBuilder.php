@@ -141,7 +141,6 @@ final class HappyEyeBallsConnectionBuilder
                     /**
                      * @param list<string> $ips
                      * @return PromiseInterface<list<string>>|list<string>
-                     * @phpstan-ignore-next-line
                      */
                     function (array $ips): PromiseInterface|array {
                         if ($this->isResolved) {
@@ -218,12 +217,10 @@ final class HappyEyeBallsConnectionBuilder
         return $this->resolver->resolveAll($this->host, $type)->then(
             null,
             /**
-             * @param mixed $e
+             * @param \Throwable $e
              * @return list<string>
              */
-            function ($e) use ($type, $rejectTarget): array {
-                assert($e instanceof \Throwable);
-
+            function (\Throwable $e) use ($type, $rejectTarget): array {
                 /** @var list<string> $emptyList */
                 $emptyList = [];
 
@@ -344,7 +341,7 @@ final class HappyEyeBallsConnectionBuilder
         $connectionPromise->then(
             onFulfilled: function (mixed $connection) use ($index, $promise): void {
                 if ($this->isResolved) {
-                    if (is_object($connection) && method_exists($connection, 'close')) {
+                    if (\is_object($connection) && method_exists($connection, 'close')) {
                         $connection->close();
                     }
 
@@ -358,11 +355,9 @@ final class HappyEyeBallsConnectionBuilder
             },
             onRejected:
             /**
-             * @param mixed $e
+             * @param \Throwable $e
              */
-            function ($e) use ($index, $ip, $promise): void {
-                assert($e instanceof \Throwable);
-
+            function (\Throwable $e) use ($index, $ip, $promise): void {
                 if ($this->isResolved) {
                     return;
                 }

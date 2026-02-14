@@ -63,7 +63,8 @@ describe('Unix Server', function () {
     it('throws an exception when the socket path is already in use', function () use (&$socketPath, &$server) {
         $server = new UnixServer($socketPath);
 
-        set_error_handler(function () {});
+        set_error_handler(function () {
+        });
         expect(fn () => new UnixServer($socketPath))->toThrow(AddressInUseException::class);
         restore_error_handler();
     });

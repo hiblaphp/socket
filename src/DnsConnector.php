@@ -73,7 +73,7 @@ final class DnsConnector implements ConnectorInterface
         $resolved = false;
 
         $dnsPromise->then(
-            function (string $ip) use ($promise, &$connectionPromise, &$resolved, $parts, $host, $original): void {
+            onFulfilled: function (string $ip) use ($promise, &$connectionPromise, &$resolved, $parts, $host, $original): void {
                 $resolved = true;
 
                 // Build new URI with resolved IP
@@ -86,35 +86,31 @@ final class DnsConnector implements ConnectorInterface
                     onFulfilled: function ($connection) use ($promise): void {
                         $promise->resolve($connection);
                     },
-                    onRejected: function (mixed $e) use ($promise, $original): void {
-                        if ($e instanceof \Throwable) {
-                            if ($e instanceof ConnectionFailedException) {
-                                $message = preg_replace(
-                                    '/^(Connection to [^ ]+)(\?hostname=[^ &]+)?/',
-                                    '$1',
-                                    $e->getMessage()
-                                );
+                    onRejected: function (\Throwable $e) use ($promise, $original): void {
+                        if ($e instanceof ConnectionFailedException) {
+                            $message = preg_replace(
+                                '/^(Connection to [^ ]+)(\?hostname=[^ &]+)?/',
+                                '$1',
+                                $e->getMessage()
+                            );
 
-                                $e = new ConnectionFailedException(
-                                    \sprintf('Connection to %s failed: %s', $original, $message),
-                                    $e->getCode(),
-                                    $e
-                                );
-                            }
-
-                            $promise->reject($e);
+                            $e = new ConnectionFailedException(
+                                \sprintf('Connection to %s failed: %s', $original, $message),
+                                $e->getCode(),
+                                $e
+                            );
                         }
+
+                        $promise->reject($e);
                     }
                 );
             },
-            function (mixed $e) use ($promise, $original): void {
-                if ($e instanceof \Throwable) {
-                    $promise->reject(new ConnectionFailedException(
-                        \sprintf('Connection to %s failed during DNS lookup: %s', $original, $e->getMessage()),
-                        0,
-                        $e
-                    ));
-                }
+            onRejected: function (\Throwable $e) use ($promise, $original): void {
+                $promise->reject(new ConnectionFailedException(
+                    \sprintf('Connection to %s failed during DNS lookup: %s', $original, $e->getMessage()),
+                    0,
+                    $e
+                ));
             }
         );
 

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Hibla\EventLoop\Loop;
+use Hibla\Promise\Exceptions\CancelledException;
 use Hibla\Socket\Connection;
 use Hibla\Socket\Interfaces\ConnectionInterface;
 use Hibla\Stream\Interfaces\WritableStreamInterface;
@@ -208,7 +209,7 @@ describe('Connection', function () {
             $serverConnection->resume();
             fwrite($client, "Message 2\n");
 
-            Loop::addTimer(0.1, fn () => Loop::stop());
+            Loop::addTimer(0.1, fn() => Loop::stop());
         });
 
         run_with_timeout(1.0);
@@ -327,7 +328,7 @@ describe('Connection', function () {
             $serverConnection->write('Echo: ' . $data);
 
             if (count($receivedData) >= 2) {
-                Loop::addTimer(0.01, fn () => Loop::stop());
+                Loop::addTimer(0.01, fn() => Loop::stop());
             }
         });
 
@@ -425,5 +426,162 @@ describe('Connection', function () {
         expect($closeCount)->toBe(1);
 
         fclose($client);
+    });
+
+    describe('enableEncryption', function () {
+        $certFile = null;
+        $server = null;
+        $client = null;
+
+        beforeEach(function () use (&$certFile) {
+            if (DIRECTORY_SEPARATOR === '\\') {
+                test()->markTestSkipped('Skipped on Windows');
+            }
+            $certFile = generate_temp_cert();
+        });
+
+        afterEach(function () use (&$certFile, &$server, &$client) {
+            if (is_resource($client)) {
+                fclose($client);
+                $client = null;
+            }
+            if (is_resource($server)) {
+                fclose($server);
+                $server = null;
+            }
+            if ($certFile && file_exists($certFile)) {
+                unlink($certFile);
+            }
+        });
+
+        it('returns a PromiseInterface', function () use (&$certFile, &$server, &$client) {
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            $promise = $connection->enableEncryption(isServer: true);
+
+            expect($promise)->toBeInstanceOf(\Hibla\Promise\Interfaces\PromiseInterface::class);
+
+            $promise->cancel();
+        });
+
+        it('resolves with the same Connection instance', function () use (&$certFile, &$server, &$client) {
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            $resolved = null;
+            $connection->enableEncryption(isServer: true)
+                ->then(function ($result) use (&$resolved) {
+                    $resolved = $result;
+                    Loop::stop();
+                });
+
+            drive_client_tls_handshake($client);
+            run_with_timeout(2.0);
+
+            expect($resolved)->toBe($connection);
+        });
+
+        it('sets encryptionEnabled to true on success', function () use (&$certFile, &$server, &$client) {
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            expect($connection->encryptionEnabled)->toBeFalse();
+
+            $completed = false;
+            $connection->enableEncryption(isServer: true)
+                ->then(function () use ($connection, &$completed) {
+                    expect($connection->encryptionEnabled)->toBeTrue();
+                    $completed = true;
+                    Loop::stop();
+                })
+                ->catch(fn($e) => test()->fail($e->getMessage()));
+
+            drive_client_tls_handshake($client);
+            run_with_timeout(2.0);
+
+            expect($completed)->toBeTrue();
+        });
+
+        it('sets the correct scheme on getRemoteAddress after encryption', function () use (&$certFile, &$server, &$client) {
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            $completed = false;
+            $connection->enableEncryption(isServer: true)
+                ->then(function () use ($connection, &$completed) {
+                    expect($connection->getRemoteAddress())->toStartWith('tls://');
+                    $completed = true;
+                    Loop::stop();
+                })
+                ->catch(fn($e) => test()->fail($e->getMessage()));
+
+            drive_client_tls_handshake($client);
+            run_with_timeout(2.0);
+
+            expect($completed)->toBeTrue();
+        });
+
+        it('applies ssl options from the sslOptions argument', function () use (&$certFile, &$server, &$client) {
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            $completed = false;
+            $connection->enableEncryption(
+                sslOptions: ['verify_peer' => false, 'allow_self_signed' => true],
+                isServer: true
+            )
+                ->then(function () use (&$completed) {
+                    $completed = true;
+                    Loop::stop();
+                })
+                ->catch(fn($e) => test()->fail($e->getMessage()));
+
+            drive_client_tls_handshake($client);
+            run_with_timeout(2.0);
+
+            expect($completed)->toBeTrue();
+        });
+
+        it('rejects when the handshake fails', function () use (&$certFile, &$server, &$client) {
+            // Plain TCP client intentionally — no TLS, forces OpenSSL failure
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            // Overwrite $client with a plain socket to break the handshake
+            fclose($client);
+            $address = stream_socket_get_name($server, false);
+            $client = stream_socket_client('tcp://' . $address);
+            stream_set_blocking($client, false);
+
+            $r = [$server];
+            $w = $e = null;
+            stream_select($r, $w, $e, 1);
+
+            fwrite($client, "GET / HTTP/1.0\r\n\r\n");
+
+            $failed = false;
+            $connection->enableEncryption(isServer: true)
+                ->then(fn() => test()->fail('Should not have resolved'))
+                ->catch(function () use (&$failed) {
+                    $failed = true;
+                    Loop::stop();
+                });
+
+            run_with_timeout(2.0);
+
+            expect($failed)->toBeTrue();
+        });
+
+        it('can cancel enableEncryption mid-handshake', function () use (&$certFile, &$server, &$client) {
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            $promise = $connection->enableEncryption(isServer: true);
+            $promise->cancel();
+
+            expect(fn() => $promise->wait())->toThrow(CancelledException::class);
+            expect(is_resource($connection->getResource()))->toBeTrue();
+        });
     });
 });

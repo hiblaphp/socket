@@ -220,3 +220,84 @@ function run_with_timeout(float $seconds): void
 
     Loop::cancelTimer($timer);
 }
+
+function drive_client_tls_handshake(mixed &$client, int $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_CLIENT): void
+{
+    $timerRef = null;
+
+    $handshake = function () use (&$client, &$handshake, &$timerRef, $cryptoMethod) {
+        if (!is_resource($client)) {
+            return;
+        }
+
+        $result = @stream_socket_enable_crypto($client, true, $cryptoMethod);
+
+        if ($result === 0) {
+            $timerRef = Loop::addTimer(0.01, $handshake);
+        } elseif ($timerRef !== null) {
+            Loop::cancelTimer($timerRef);
+            $timerRef = null;
+        }
+    };
+
+    Loop::addTimer(0.01, $handshake);
+}
+
+function make_tls_pair(string $certFile, mixed &$server, mixed &$client, array $sslOptions = [], bool $plainClient = false): array
+{
+    $context = stream_context_create([
+        'ssl' => array_merge([
+            'local_cert'        => $certFile,
+            'verify_peer'       => false,
+            'verify_peer_name'  => false,
+            'allow_self_signed' => true,
+        ], $sslOptions),
+    ]);
+
+    $server = stream_socket_server(
+        'tcp://127.0.0.1:0', $errno, $errstr,
+        STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+        $context
+    );
+    $address = stream_socket_get_name($server, false);
+    stream_set_blocking($server, false);
+
+    $client = $plainClient
+        ? stream_socket_client('tcp://' . $address)
+        : stream_socket_client('tcp://' . $address, $errno, $errstr, 1, STREAM_CLIENT_CONNECT, $context);
+
+    stream_set_blocking($client, false);
+
+    $r = [$server]; $w = $e = null;
+    stream_select($r, $w, $e, 1);
+
+    $serverSocket = stream_socket_accept($server);
+    stream_set_blocking($serverSocket, false);
+
+    return [$serverSocket, $client];
+}
+
+function drive_server_tls_handshake(mixed $serverSocket, callable $onComplete, int $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_SERVER): void
+{
+    $timerRef = null;
+
+    $handshake = function () use ($serverSocket, &$handshake, &$timerRef, $cryptoMethod, $onComplete) {
+        if (!is_resource($serverSocket)) {
+            return;
+        }
+
+        $result = @stream_socket_enable_crypto($serverSocket, true, $cryptoMethod);
+
+        if ($result === 0) {
+            $timerRef = Loop::addTimer(0.01, $handshake);
+        } elseif ($result === true) {
+            if ($timerRef !== null) {
+                Loop::cancelTimer($timerRef);
+                $timerRef = null;
+            }
+            $onComplete();
+        }
+    };
+
+    Loop::addTimer(0.01, $handshake);
+}

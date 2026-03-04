@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Hibla\Socket\Interfaces;
 
+use Hibla\Promise\Interfaces\PromiseInterface;
 use Hibla\Stream\Interfaces\DuplexStreamInterface;
 
 /**
@@ -41,4 +42,16 @@ interface ConnectionInterface extends DuplexStreamInterface
      * @return string|null The local address string, or null if the connection is closed or the address cannot be determined.
      */
     public function getLocalAddress(): ?string;
+
+    /**
+     * Enables SSL/TLS encryption on the connection mid-flight.
+     *
+     * Useful for protocols that start in plaintext and upgrade to secure connections
+     * dynamically (e.g., MySQL handshake, SMTP STARTTLS, PostgreSQL).
+     *
+     * @param array<string, mixed> $sslOptions Standard PHP SSL context options.
+     * @param bool $isServer Whether this side of the connection is acting as the TLS server.
+     * @return PromiseInterface<ConnectionInterface> Resolves when the TLS handshake is complete.
+     */
+    public function enableEncryption(array $sslOptions = [], bool $isServer = false): PromiseInterface;
 }

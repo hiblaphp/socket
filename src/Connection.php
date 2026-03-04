@@ -100,12 +100,9 @@ final class Connection extends EventEmitter implements ConnectionInterface
     }
 
     /**
-     * Enables SSL/TLS encryption on the connection.
+     * {@inheritDoc}
      *
-     * @internal This is rarely used in practice, this is useful for client that need mid flight upgrade from tcp to tls like mysql client
-     * @param array<string, mixed> $sslOptions
-     * @param bool $isServer
-     * @return PromiseInterface<Connection>
+     * @return PromiseInterface<ConnectionInterface>
      */
     public function enableEncryption(array $sslOptions = [], bool $isServer = false): PromiseInterface
     {
@@ -113,11 +110,14 @@ final class Connection extends EventEmitter implements ConnectionInterface
             stream_context_set_option($this->resource, 'ssl', $option, $value);
         }
 
-        $encryption = new StreamEncryption(isServer: $isServer);
+        $encryption = new StreamEncryption($isServer);
 
         return $encryption->enable($this);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function getRemoteAddress(): ?string
     {
         if (! \is_resource($this->resource)) {
@@ -130,6 +130,9 @@ final class Connection extends EventEmitter implements ConnectionInterface
         return $parsed;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function getLocalAddress(): ?string
     {
         if (! \is_resource($this->resource)) {

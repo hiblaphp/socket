@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Mocks;
 
+use Hibla\Promise\Interfaces\PromiseInterface;
+use Hibla\Promise\Promise;
 use Hibla\Socket\Interfaces\ConnectionInterface;
 use Hibla\Stream\Interfaces\WritableStreamInterface;
 
@@ -104,5 +106,12 @@ class MockConnection implements ConnectionInterface
     public function isClosed(): bool
     {
         return $this->closed;
+    }
+
+    public function enableEncryption(array $sslOptions = [], bool $isServer = false): PromiseInterface
+    {
+        return new Promise(function () use ($isServer): void {
+            $this->encryptionEnabled = true;
+        });
     }
 }

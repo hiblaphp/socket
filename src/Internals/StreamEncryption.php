@@ -19,9 +19,8 @@ final class StreamEncryption
 {
     private readonly int $method;
 
-    public function __construct(
-        private readonly bool $isServer = true
-    ) {
+    public function __construct(bool $isServer = true)
+    {
         $this->method = $isServer
             ? STREAM_CRYPTO_METHOD_TLS_SERVER
             : STREAM_CRYPTO_METHOD_TLS_CLIENT;
@@ -73,10 +72,29 @@ final class StreamEncryption
         /** @var Promise<Connection> $promise */
         $promise = new Promise();
 
-        /** @var string|null $watcherId */
-        $watcherId = null;
+        /** @var string|null $readWatcherId */
+        $readWatcherId = null;
+        /** @var string|null $writeWatcherId */
+        $writeWatcherId = null;
+        $isDone = false;
 
-        $toggleCrypto = function () use ($socket, $promise, $enable, $method, &$watcherId, $connection): void {
+        $clearWatchers = function () use (&$readWatcherId, &$writeWatcherId): void {
+            if ($readWatcherId !== null) {
+                Loop::removeReadWatcher($readWatcherId);
+                $readWatcherId = null;
+            }
+            if ($writeWatcherId !== null) {
+                Loop::removeWriteWatcher($writeWatcherId);
+                $writeWatcherId = null;
+            }
+        };
+
+        $toggleCrypto = function () use ($socket, $promise, $enable, $method, $clearWatchers, $connection, &$isDone): void {
+            // Guard to prevent double-firing if socket is both readable and writable in the same tick
+            if ($isDone) {
+                return;
+            }
+
             $error = null;
 
             set_error_handler(function (int $errno, string $msg, string $file = '', int $line = 0) use (&$error): bool {
@@ -93,21 +111,15 @@ final class StreamEncryption
             restore_error_handler();
 
             if ($result === true) {
-                // Success: Encryption enabled/disabled
-                if ($watcherId !== null) {
-                    Loop::removeReadWatcher($watcherId);
-                    $watcherId = null;
-                }
+                $isDone = true;
+                $clearWatchers();
 
                 $connection->encryptionEnabled = $enable;
                 $connection->resume();
                 $promise->resolve($connection);
             } elseif ($result === false) {
-                // Failure: Handshake failed permanently
-                if ($watcherId !== null) {
-                    Loop::removeReadWatcher($watcherId);
-                    $watcherId = null;
-                }
+                $isDone = true;
+                $clearWatchers();
 
                 $connection->resume();
 
@@ -124,25 +136,19 @@ final class StreamEncryption
                     ));
                 }
             } else {
-                // Result === 0: Needs more I/O, will retry when readable
+                // Result === 0: Needs more I/O.
+                // OpenSSL internally tracks whether it needs to read or write.
+                // Because both watchers are registered, the loop will call the callback
+                // appropriately when the socket unblocks.
             }
         };
 
-        $watcherId = Loop::addReadWatcher(
-            stream: $socket,
-            callback: $toggleCrypto,
-        );
+        $readWatcherId = Loop::addReadWatcher($socket, $toggleCrypto);
+        $writeWatcherId = Loop::addWriteWatcher($socket, $toggleCrypto);
 
-        // If we are the client, start the handshake immediately
-        if (! $this->isServer) {
-            $toggleCrypto();
-        }
-
-        $promise->onCancel(function () use (&$watcherId): void {
-            if ($watcherId !== null) {
-                Loop::removeReadWatcher($watcherId);
-                $watcherId = null;
-            }
+        $promise->onCancel(function () use ($clearWatchers, &$isDone): void {
+            $isDone = true;
+            $clearWatchers();
         });
 
         return $promise;

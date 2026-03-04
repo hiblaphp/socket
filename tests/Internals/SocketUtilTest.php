@@ -43,6 +43,7 @@ describe('Socket Util', function () {
         fclose($server);
 
         $exception = null;
+
         try {
             SocketUtil::accept($server);
         } catch (AcceptFailedException $e) {

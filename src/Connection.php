@@ -29,6 +29,8 @@ final class Connection extends EventEmitter implements ConnectionInterface
      */
     public bool $encryptionEnabled = false;
 
+    private bool $closing = false;
+
     private readonly DuplexResourceStream $stream;
 
     /**
@@ -83,6 +85,12 @@ final class Connection extends EventEmitter implements ConnectionInterface
 
     public function close(): void
     {
+        if ($this->closing) {
+            return;
+        }
+        
+        $this->closing = true;
+
         $this->stream->close();
         $this->handleClose();
         $this->removeAllListeners();

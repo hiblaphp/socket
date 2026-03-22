@@ -1332,28 +1332,63 @@ await(async(function () {
 Useful for protocols that start in plaintext and upgrade to TLS (MySQL, SMTP
 STARTTLS, PostgreSQL).
 
+> **Important:** Use `once()` instead of `on()` for the plain negotiation phase.
+> `enableEncryption()` upgrades the underlying stream in place but does not remove
+> listeners you registered before the upgrade. If you use `on()` for the plain
+> phase, that listener stays attached and will fire again for every subsequent
+> chunk — including data that arrives over the secure channel after the upgrade.
+> `once()` removes itself automatically after the first call, so secure data only
+> reaches the listeners you register after the upgrade completes.
+```php
+// WRONG — plain listener stays attached after upgrade
+$connection->on('data', function (string $data) use ($connection) {
+    if (str_contains($data, 'STARTTLS')) {
+        $connection->enableEncryption([...])->then(function ($secureConn) {
+            $secureConn->on('data', fn(string $data) => echo "Secure: " . $data);
+            // Secure data now fires through BOTH the plain on('data') above
+            // AND this secure on('data') handler
+        });
+    }
+});
+
+// CORRECT — plain listener removed automatically after STARTTLS fires
+$connection->once('data', function (string $data) use ($connection) {
+    if (str_contains($data, 'STARTTLS')) {
+        $connection->enableEncryption([...])->then(function ($secureConn) {
+            $secureConn->on('data', fn(string $data) => echo "Secure: " . $data);
+            // Only this handler fires for secure data
+        });
+    }
+});
+```
+
 **Server side — promise chain style:**
 ```php
-$server->on('connection', function ($connection) {
-    $connection->on('data', function (string $data) use ($connection) {
+$server->on('connection', function ($connection) use ($certFile, $keyFile) {
+    $connection->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
+
+    $connection->once('data', function (string $data) use ($connection, $certFile, $keyFile) {
         if (str_contains($data, 'STARTTLS')) {
+            $connection->write("+OK Begin TLS\r\n");
+
             $connection->enableEncryption([
-                'local_cert' => '/path/to/cert.pem',
-                'local_pk'   => '/path/to/key.pem',
+                'local_cert'  => $certFile,
+                'local_pk'    => $keyFile,
+                'verify_peer' => false,
             ], isServer: true)
             ->then(function ($secureConn) {
-                $secureConn->write("+OK Begin TLS\r\n");
-                $secureConn->on('data', fn(string $data) => echo "Secure: " . $data);
                 $secureConn->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
+                $secureConn->on('data', fn(string $data) => echo "Secure: " . $data);
             })
             ->catch(function (\Throwable $e) use ($connection) {
                 echo "TLS upgrade failed: " . $e->getMessage() . "\n";
+                // Always close the connection on failure — leaving it open
+                // causes the client to hang waiting for a handshake that
+                // will never complete
                 $connection->close();
             });
         }
     });
-
-    $connection->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
 });
 ```
 
@@ -1362,26 +1397,31 @@ $server->on('connection', function ($connection) {
 use Hibla\Socket\Exceptions\EncryptionFailedException;
 use function Hibla\async;
 
-$server->on('connection', function ($connection) {
+$server->on('connection', function ($connection) use ($certFile, $keyFile) {
     $connection->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
 
-    $connection->on('data', function (string $data) use ($connection) {
+    $connection->once('data', function (string $data) use ($connection, $certFile, $keyFile) {
         if (str_contains($data, 'STARTTLS')) {
-            async(function () use ($connection) {
+            $connection->write("+OK Begin TLS\r\n");
+
+            async(function () use ($connection, $certFile, $keyFile) {
                 try {
                     $secureConn = await($connection->enableEncryption([
-                        'local_cert' => '/path/to/cert.pem',
-                        'local_pk'   => '/path/to/key.pem',
+                        'local_cert'  => $certFile,
+                        'local_pk'    => $keyFile,
+                        'verify_peer' => false,
                     ], isServer: true));
                 } catch (EncryptionFailedException $e) {
                     echo "TLS upgrade failed: " . $e->getMessage() . "\n";
+                    // Always close the connection on failure — leaving it open
+                    // causes the client to hang waiting for a handshake that
+                    // will never complete
                     $connection->close();
                     return;
                 }
 
-                $secureConn->write("+OK Begin TLS\r\n");
-                $secureConn->on('data', fn(string $data) => echo "Secure: " . $data);
                 $secureConn->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
+                $secureConn->on('data', fn(string $data) => echo "Secure: " . $data);
             });
         }
     });
@@ -1394,12 +1434,19 @@ $connector->connect('tcp://mail.example.com:25')
     ->then(function ($connection) {
         $connection->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
 
-        $connection->on('data', function (string $data) use ($connection) {
+        $connection->once('data', function (string $data) use ($connection) {
             if (str_contains($data, 'STARTTLS')) {
                 $connection->write("STARTTLS\r\n");
+
                 $connection->enableEncryption(['verify_peer' => true])
-                    ->then(fn($conn) => $conn->write("EHLO client.example.com\r\n"))
-                    ->catch(fn(\Throwable $e) => echo "TLS failed: " . $e->getMessage() . "\n");
+                    ->then(function ($secureConn) {
+                        $secureConn->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
+                        $secureConn->write("EHLO client.example.com\r\n");
+                    })
+                    ->catch(function (\Throwable $e) use ($connection) {
+                        echo "TLS upgrade failed: " . $e->getMessage() . "\n";
+                        $connection->close();
+                    });
             }
         });
     });
@@ -1420,11 +1467,15 @@ await(async(function () use ($connector) {
         $secureConn = await($connection->enableEncryption(['verify_peer' => true]));
     } catch (EncryptionFailedException $e) {
         echo "TLS upgrade failed: " . $e->getMessage() . "\n";
+        // Always close the connection on failure — leaving it open
+        // causes the remote end to hang waiting for a handshake that
+        // will never complete
+        $connection->close();
         return;
     }
 
-    $secureConn->write("EHLO client.example.com\r\n");
     $secureConn->on('error', fn(\Throwable $e) => echo "Error: " . $e->getMessage() . "\n");
+    $secureConn->write("EHLO client.example.com\r\n");
 }));
 ```
 

@@ -484,7 +484,7 @@ describe('DnsConnector', function () {
 
 describe('DnsConnector - Real Network Integration', function () {
     test('resolves and connects to cloudflare.com using real DNS and TCP connector', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1', '1.0.0.1'])
             ->withTimeout(5.0)
             ->build()
@@ -508,7 +508,7 @@ describe('DnsConnector - Real Network Integration', function () {
     });
 
     test('resolves and connects to google.com using real DNS and TCP connector', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['8.8.8.8', '8.8.4.4'])
             ->withTimeout(5.0)
             ->build()
@@ -530,7 +530,7 @@ describe('DnsConnector - Real Network Integration', function () {
     });
 
     test('handles real DNS lookup failure for nonexistent domain', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->withTimeout(5.0)
             ->build()
@@ -547,7 +547,7 @@ describe('DnsConnector - Real Network Integration', function () {
     });
 
     test('connects directly to IP address without DNS lookup', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->build()
         ;
@@ -568,7 +568,7 @@ describe('DnsConnector - Real Network Integration', function () {
     });
 
     test('resolves IPv6 address and connects', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['2606:4700:4700::1111', '2606:4700:4700::1001'])->withTimeout(5.0)
             ->build()
         ;
@@ -592,7 +592,7 @@ describe('DnsConnector - Real Network Integration', function () {
     });
 
     test('real connection with caching enabled', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->withTimeout(5.0)
             ->withCache()

@@ -423,7 +423,7 @@ describe('HappyEyeBallsConnector', function () {
 
 describe('HappyEyeBallsConnector - Real Network Integration', function () {
     test('connects to cloudflare.com using Happy Eyeballs', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1', '1.0.0.1'])
             ->withTimeout(5.0)
             ->build()
@@ -445,7 +445,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('connects to google.com using Happy Eyeballs', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['8.8.8.8', '8.8.4.4'])
             ->withTimeout(5.0)
             ->build()
@@ -467,7 +467,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('prefers IPv6 when available', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['2606:4700:4700::1111', '2606:4700:4700::1001'])
             ->withTimeout(5.0)
             ->build()
@@ -490,7 +490,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('falls back to IPv4 when IPv6 unreachable', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->withTimeout(5.0)
             ->build()
@@ -512,7 +512,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('handles nonexistent domain gracefully', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->withTimeout(5.0)
             ->build()
@@ -529,7 +529,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('connects directly to IPv4 address without DNS', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->build()
         ;
@@ -548,7 +548,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('connects directly to IPv6 address without DNS', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['2606:4700:4700::1111'])
             ->build()
         ;
@@ -567,7 +567,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('connection with caching enabled', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->withTimeout(5.0)
             ->withCache()
@@ -589,7 +589,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('handles connection timeout gracefully', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->withTimeout(5.0)
             ->build()
@@ -606,7 +606,7 @@ describe('HappyEyeBallsConnector - Real Network Integration', function () {
     });
 
     test('cancellation works during active connection', function () {
-        $resolver = Dns::new()
+        $resolver = Dns::builder()
             ->withNameservers(['1.1.1.1'])
             ->withTimeout(5.0)
             ->build()

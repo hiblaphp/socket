@@ -162,7 +162,7 @@ final class Connector implements ConnectorInterface
             return $context['dns'];
         }
 
-        $builder = Dns::new();
+        $builder = Dns::builder();
 
         if (\is_array($context['dns'])) {
             /** @var array<string> $nameservers */

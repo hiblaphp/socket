@@ -5,6 +5,8 @@
 Part of the [Hibla](https://github.com/hiblaphp) ecosystem. Built on top of `hiblaphp/async`'s event loop. All I/O is non-blocking and driven by the same loop that powers your fibers, timers, and promises.
 
 [![Latest Release](https://img.shields.io/github/release/hiblaphp/socket.svg?style=flat-square)](https://github.com/hiblaphp/socket/releases)
+[![Tests](https://github.com/hiblaphp/socket/actions/workflows/test.yml/badge.svg)](https://github.com/hiblaphp/socket/actions/workflows/test.yml)
+[![Total Downloads](https://img.shields.io/packagist/dt/hiblaphp/socket.svg?style=flat-square)](https://packagist.org/packages/hiblaphp/socket)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
 
 ---

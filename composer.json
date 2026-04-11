@@ -19,6 +19,8 @@
         "hiblaphp/dns": "^1.0@alpha"
     },
     "require-dev": {
+        "hiblaphp/async": "^1.0@alpha",
+        "hiblaphp/cancellation": "^1.0@alpha",
         "pestphp/pest": "^4.0",
         "laravel/pint": "^1.0",
         "phpstan/phpstan": "^2.0",

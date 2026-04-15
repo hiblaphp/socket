@@ -9,18 +9,18 @@
         "HiblaPHP"
     ],
     "license": "MIT",
+    "minimum-stability": "alpha",
     "prefer-stable": true,
     "require": {
         "php": "^8.4",
         "evenement/evenement": "^3.0",
-        "hiblaphp/event-loop": "^1.0@alpha",
-        "hiblaphp/stream": "^1.0@alpha",
-        "hiblaphp/promise": "^1.0@alpha",
-        "hiblaphp/dns": "^1.0@alpha"
+        "hiblaphp/event-loop": "^1.0",
+        "hiblaphp/stream": "^1.0",
+        "hiblaphp/promise": "^1.0",
+        "hiblaphp/dns": "^1.0"
     },
     "require-dev": {
-        "hiblaphp/async": "^1.0@alpha",
-        "hiblaphp/cancellation": "^1.0@alpha",
+        "hiblaphp/async": "^1.0",
         "pestphp/pest": "^4.0",
         "laravel/pint": "^1.0",
         "phpstan/phpstan": "^2.0",

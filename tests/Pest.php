@@ -5,11 +5,7 @@ declare(strict_types=1);
 use Hibla\EventLoop\Loop;
 
 uses()
-    ->beforeEach(function () {
-        Loop::reset();
-    })
     ->afterEach(function () {
-        Loop::forceStop();
         Loop::reset();
     })
     ->in(__DIR__)

@@ -85,7 +85,6 @@ describe('Unix Connector', function () {
 
             try {
                 $promise->wait();
-
                 throw new Exception('Should have thrown');
             } catch (ConnectionFailedException $e) {
                 expect($e->getMessage())->toContain('does not exist');
@@ -105,7 +104,6 @@ describe('Unix Connector', function () {
 
                 try {
                     $promise->wait();
-
                     throw new Exception('Should have thrown');
                 } catch (ConnectionFailedException $e) {
                     expect($e->getMessage())->toContain('not a valid Unix domain socket');
@@ -128,7 +126,6 @@ describe('Unix Connector', function () {
 
                 try {
                     $promise->wait();
-
                     throw new Exception('Should have thrown');
                 } catch (ConnectionFailedException $e) {
                     expect($e->getMessage())->toContain('not a valid Unix domain socket');
@@ -163,7 +160,6 @@ describe('Unix Connector', function () {
 
                 try {
                     $promise->wait();
-
                     throw new Exception('Should have thrown');
                 } catch (ConnectionFailedException $e) {
                     expect($e->getMessage())->toContain('not a valid Unix domain socket');
@@ -194,9 +190,12 @@ describe('Unix Connector', function () {
             try {
                 $connector = new UnixConnector();
                 $promise = $connector->connect($socketPath);
+                
                 $connection = $promise->wait();
 
                 expect($connection)->toBeInstanceOf(ConnectionInterface::class);
+                
+                $connection->close();
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -220,9 +219,11 @@ describe('Unix Connector', function () {
             try {
                 $connector = new UnixConnector();
                 $promise = $connector->connect('unix://' . $socketPath);
+                
                 $connection = $promise->wait();
 
                 expect($connection)->toBeInstanceOf(ConnectionInterface::class);
+                $connection->close();
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -252,13 +253,20 @@ describe('Unix Connector', function () {
                     ->then(function ($conn) use (&$resolved, &$connection) {
                         $resolved = true;
                         $connection = $conn;
-                    })
-                ;
+                    });
 
-                Loop::runOnce();
+                Loop::addTimer(0.01, function() {
+                    Loop::stop();
+                });
+
+                Loop::run();
 
                 expect($resolved)->toBeTrue();
                 expect($connection)->toBeInstanceOf(ConnectionInterface::class);
+                
+                if ($connection) {
+                    $connection->close();
+                }
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -290,6 +298,8 @@ describe('Unix Connector', function () {
 
                 $connection = $promise->getValue();
                 expect($connection)->toBeInstanceOf(Connection::class);
+                
+                $connection->close();
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -313,11 +323,14 @@ describe('Unix Connector', function () {
             try {
                 $connector = new UnixConnector();
                 $promise = $connector->connect($socketPath);
+                
                 $connection = $promise->wait();
 
                 expect($promise->isFulfilled())->toBeTrue();
                 expect($promise->isPending())->toBeFalse();
                 expect($promise->isRejected())->toBeFalse();
+                
+                $connection->close();
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -418,6 +431,9 @@ describe('Unix Connector', function () {
                 expect($connection1)->toBeInstanceOf(ConnectionInterface::class);
                 expect($connection2)->toBeInstanceOf(ConnectionInterface::class);
                 expect($connection1)->not->toBe($connection2);
+                
+                $connection1->close();
+                $connection2->close();
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -440,6 +456,7 @@ describe('Unix Connector', function () {
 
             try {
                 $connector = new UnixConnector();
+                
                 $connection1 = $connector->connect($socketPath)->wait();
                 $connection2 = $connector->connect($socketPath)->wait();
                 $connection3 = $connector->connect($socketPath)->wait();
@@ -447,6 +464,10 @@ describe('Unix Connector', function () {
                 expect($connection1)->toBeInstanceOf(ConnectionInterface::class);
                 expect($connection2)->toBeInstanceOf(ConnectionInterface::class);
                 expect($connection3)->toBeInstanceOf(ConnectionInterface::class);
+                
+                $connection1->close();
+                $connection2->close();
+                $connection3->close();
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -472,9 +493,11 @@ describe('Unix Connector', function () {
             try {
                 $connector = new UnixConnector();
                 $promise = $connector->connect($socketPath);
+                
                 $connection = $promise->wait();
 
                 expect($connection)->toBeInstanceOf(ConnectionInterface::class);
+                $connection->close();
             } finally {
                 fclose($server);
                 unlink($socketPath);
@@ -508,6 +531,7 @@ describe('Unix Connector', function () {
                 expect($connections)->toHaveCount(10);
                 foreach ($connections as $connection) {
                     expect($connection)->toBeInstanceOf(ConnectionInterface::class);
+                    $connection->close();
                 }
             } finally {
                 fclose($server);

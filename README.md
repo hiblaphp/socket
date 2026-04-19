@@ -68,19 +68,22 @@ Part of the [Hibla](https://github.com/hiblaphp) ecosystem. Built on top of `hib
 
 ## Installation
 
->This library is currently in its Alpha development phase. You can install the library via Composer by explicitly allowing alpha stability:
+>This package is currently in **beta**. Before installing, ensure your `composer.json`
+allows beta releases:
+
+```json
+{
+    "minimum-stability": "beta",
+    "prefer-stable": true
+}
+```
 
 ```bash
-composer require hiblaphp/socket:"^1.0@alpha"
+composer require hiblaphp/socket
 ```
 
 **Requirements:**
-- PHP 8.4+
-- `hiblaphp/stream`
-- `hiblaphp/promise`
-- `hiblaphp/event-loop`
-- `hiblaphp/dns`
-- `evenement/evenement`
+- PHP 8.4+ 
 
 ---
 

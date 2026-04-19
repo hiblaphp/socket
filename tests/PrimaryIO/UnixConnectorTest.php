@@ -296,7 +296,7 @@ describe('Unix Connector', function () {
                 expect($promise->isFulfilled())->toBeTrue();
                 expect($promise->isRejected())->toBeFalse();
 
-                $connection = $promise->getValue();
+                $connection = $promise->value;
                 expect($connection)->toBeInstanceOf(Connection::class);
                 
                 $connection->close();

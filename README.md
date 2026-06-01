@@ -2,7 +2,7 @@
 
 **Async, non-blocking TCP, TLS, and Unix domain socket library for PHP.**
 
-Part of the [Hibla](https://github.com/hiblaphp) ecosystem. Built on top of `hiblaphp/async`'s event loop. All I/O is non-blocking and driven by the same loop that powers your fibers, timers, and promises.
+Part of the [Hibla](https://github.com/hiblaphp) ecosystem. Built on top of `hiblaphp/stream`, `hiblaphp/promise` and `hiblaphp/event-loop`. All I/O is non-blocking and driven by the same loop that powers your fibers, timers, and promises.
 
 [![Latest Release](https://img.shields.io/github/release/hiblaphp/socket.svg?style=flat-square)](https://github.com/hiblaphp/socket/releases)
 [![Tests](https://github.com/hiblaphp/socket/actions/workflows/test.yml/badge.svg)](https://github.com/hiblaphp/socket/actions/workflows/test.yml)

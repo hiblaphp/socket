@@ -73,6 +73,11 @@ class MockConnection implements ConnectionInterface
         return $this->closed ? null : $this->localAddress;
     }
 
+    public function getMetadata(): array
+    {
+        return [];
+    }
+
     public function on($event, callable $listener): void
     {
         // No-op for mock

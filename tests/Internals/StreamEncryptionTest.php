@@ -26,9 +26,17 @@ describe('Stream Encryption', function () {
             $connection->close();
             $connection = null;
         }
-        if (is_resource($client)) { fclose($client); $client = null; }
-        if (is_resource($server)) { fclose($server); $server = null; }
-        if ($certFile && file_exists($certFile)) { unlink($certFile); }
+        if (is_resource($client)) {
+            fclose($client);
+            $client = null;
+        }
+        if (is_resource($server)) {
+            fclose($server);
+            $server = null;
+        }
+        if ($certFile && file_exists($certFile)) {
+            unlink($certFile);
+        }
 
         Loop::stop();
         Loop::reset();
@@ -57,7 +65,8 @@ describe('Stream Encryption', function () {
                     }
                 });
             })
-            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()));
+            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()))
+        ;
 
         drive_client_tls_handshake($client);
         run_with_timeout(2.0);
@@ -70,7 +79,7 @@ describe('Stream Encryption', function () {
             'ssl' => [
                 'local_cert' => $certFile,
                 'verify_peer' => false,
-                'verify_peer_name'  => false,
+                'verify_peer_name' => false,
                 'allow_self_signed' => true,
             ],
         ]);
@@ -89,7 +98,8 @@ describe('Stream Encryption', function () {
         $client = stream_socket_client('tcp://' . $address, $errno, $errstr, 1, STREAM_CLIENT_CONNECT, $clientContext);
         stream_set_blocking($client, false);
 
-        $r = [$server]; $w = $e = null;
+        $r = [$server];
+        $w = $e = null;
         stream_select($r, $w, $e, 1);
 
         $serverSocket = stream_socket_accept($server);
@@ -102,7 +112,7 @@ describe('Stream Encryption', function () {
         });
 
         $connection = new Connection($client);
-        $received   = '';
+        $received = '';
 
         (new StreamEncryption(isServer: false))
             ->enable($connection)
@@ -117,7 +127,8 @@ describe('Stream Encryption', function () {
                     }
                 });
             })
-            ->catch(fn ($e) => test()->fail('Client-side encryption should have succeeded: ' . $e->getMessage()));
+            ->catch(fn ($e) => test()->fail('Client-side encryption should have succeeded: ' . $e->getMessage()))
+        ;
 
         run_with_timeout(2.0);
 
@@ -135,7 +146,8 @@ describe('Stream Encryption', function () {
                 expect($metadata['blocked'])->toBeFalse();
                 Loop::stop();
             })
-            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()));
+            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()))
+        ;
 
         drive_client_tls_handshake($client);
         run_with_timeout(2.0);
@@ -147,17 +159,18 @@ describe('Stream Encryption', function () {
 
         fwrite($client, "GET / HTTP/1.0\r\n\r\n");
 
-        $failed       = false;
+        $failed = false;
         $errorMessage = '';
 
         (new StreamEncryption(isServer: true))
             ->enable($connection)
             ->then(fn () => test()->fail('Handshake should have failed'))
             ->catch(function ($e) use (&$failed, &$errorMessage) {
-                $failed       = true;
+                $failed = true;
                 $errorMessage = $e->getMessage();
                 Loop::stop();
-            });
+            })
+        ;
 
         run_with_timeout(2.0);
 
@@ -176,17 +189,18 @@ describe('Stream Encryption', function () {
             }
         });
 
-        $failed       = false;
+        $failed = false;
         $errorMessage = '';
 
         (new StreamEncryption(isServer: true))
             ->enable($connection)
             ->then(fn () => test()->fail('Handshake should have failed due to connection loss'))
             ->catch(function ($e) use (&$failed, &$errorMessage) {
-                $failed       = true;
+                $failed = true;
                 $errorMessage = $e->getMessage();
                 Loop::stop();
-            });
+            })
+        ;
 
         run_with_timeout(2.0);
 
@@ -224,7 +238,8 @@ describe('Stream Encryption', function () {
                     }
                 });
             })
-            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()));
+            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()))
+        ;
 
         drive_client_tls_handshake($client);
         run_with_timeout(2.0);
@@ -270,7 +285,8 @@ describe('Stream Encryption', function () {
                     }
                 });
             })
-            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()));
+            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()))
+        ;
 
         drive_client_tls_handshake($client);
         run_with_timeout(2.0);
@@ -280,7 +296,9 @@ describe('Stream Encryption', function () {
 
     it('handles custom crypto method from context', function () use (&$certFile, &$server, &$client, &$connection) {
         [$serverSocket, $client] = make_tls_pair(
-            $certFile, $server, $client,
+            $certFile,
+            $server,
+            $client,
             sslOptions: ['crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_SERVER]
         );
 
@@ -288,7 +306,7 @@ describe('Stream Encryption', function () {
         stream_context_set_option($serverSocket, 'ssl', 'crypto_method', STREAM_CRYPTO_METHOD_TLSv1_2_SERVER);
 
         $connection = new Connection($serverSocket);
-        $completed  = false;
+        $completed = false;
 
         (new StreamEncryption(isServer: true))
             ->enable($connection)
@@ -298,7 +316,8 @@ describe('Stream Encryption', function () {
                 $completed = true;
                 Loop::stop();
             })
-            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()));
+            ->catch(fn ($e) => test()->fail('Encryption should have succeeded: ' . $e->getMessage()))
+        ;
 
         drive_client_tls_handshake($client, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
         run_with_timeout(2.0);

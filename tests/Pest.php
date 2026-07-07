@@ -222,7 +222,7 @@ function drive_client_tls_handshake(mixed &$client, int $cryptoMethod = STREAM_C
     $timerRef = null;
 
     $handshake = function () use (&$client, &$handshake, &$timerRef, $cryptoMethod) {
-        if (!is_resource($client)) {
+        if (! is_resource($client)) {
             return;
         }
 
@@ -243,15 +243,17 @@ function make_tls_pair(string $certFile, mixed &$server, mixed &$client, array $
 {
     $context = stream_context_create([
         'ssl' => array_merge([
-            'local_cert'        => $certFile,
-            'verify_peer'       => false,
-            'verify_peer_name'  => false,
+            'local_cert' => $certFile,
+            'verify_peer' => false,
+            'verify_peer_name' => false,
             'allow_self_signed' => true,
         ], $sslOptions),
     ]);
 
     $server = stream_socket_server(
-        'tcp://127.0.0.1:0', $errno, $errstr,
+        'tcp://127.0.0.1:0',
+        $errno,
+        $errstr,
         STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
         $context
     );
@@ -264,7 +266,8 @@ function make_tls_pair(string $certFile, mixed &$server, mixed &$client, array $
 
     stream_set_blocking($client, false);
 
-    $r = [$server]; $w = $e = null;
+    $r = [$server];
+    $w = $e = null;
     stream_select($r, $w, $e, 1);
 
     $serverSocket = stream_socket_accept($server);
@@ -278,7 +281,7 @@ function drive_server_tls_handshake(mixed $serverSocket, callable $onComplete, i
     $timerRef = null;
 
     $handshake = function () use ($serverSocket, &$handshake, &$timerRef, $cryptoMethod, $onComplete) {
-        if (!is_resource($serverSocket)) {
+        if (! is_resource($serverSocket)) {
             return;
         }
 

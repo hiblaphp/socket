@@ -24,6 +24,37 @@ describe('Connection', function () {
         }
     });
 
+    it('returns stream metadata as an array', function () {
+        [$client, $server] = creat_socket_pair();
+        $connection = new Connection($server);
+
+        $metadata = $connection->getMetadata();
+
+        expect($metadata)->toBeArray()
+            ->and($metadata)->toHaveKey('stream_type')
+            ->and($metadata)->toHaveKey('unread_bytes')
+            ->and($metadata)->toHaveKey('blocked')
+        ;
+
+        $connection->close();
+        fclose($client);
+    });
+
+    it('returns empty array for metadata after close', function () {
+        [$client, $server] = creat_socket_pair();
+        $connection = new Connection($server);
+
+        $connection->close();
+
+        $metadata = $connection->getMetadata();
+
+        expect($metadata)->toBeArray()
+            ->and($metadata)->toBeEmpty()
+        ;
+
+        fclose($client);
+    });
+
     it('implements ConnectionInterface', function () {
         [$client, $server] = creat_socket_pair();
         $connection = new Connection($server);
@@ -209,7 +240,7 @@ describe('Connection', function () {
             $serverConnection->resume();
             fwrite($client, "Message 2\n");
 
-            Loop::addTimer(0.1, fn() => Loop::stop());
+            Loop::addTimer(0.1, fn () => Loop::stop());
         });
 
         run_with_timeout(1.0);
@@ -328,7 +359,7 @@ describe('Connection', function () {
             $serverConnection->write('Echo: ' . $data);
 
             if (count($receivedData) >= 2) {
-                Loop::addTimer(0.01, fn() => Loop::stop());
+                Loop::addTimer(0.01, fn () => Loop::stop());
             }
         });
 
@@ -454,13 +485,40 @@ describe('Connection', function () {
             }
         });
 
+        it('includes crypto information in metadata after encryption', function () use (&$certFile, &$server, &$client) {
+            [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
+            $connection = new Connection($serverSocket);
+
+            $completed = false;
+            $connection->enableEncryption(isServer: true)
+                ->then(function () use ($connection, &$completed) {
+                    $metadata = $connection->getMetadata();
+
+                    expect($metadata)->toHaveKey('crypto')
+                        ->and($metadata['crypto'])->toBeArray()
+                        ->and($metadata['crypto'])->toHaveKey('protocol')
+                        ->and($metadata['crypto'])->toHaveKey('cipher_name')
+                    ;
+
+                    $completed = true;
+                    Loop::stop();
+                })
+                ->catch(fn ($e) => test()->fail($e->getMessage()))
+            ;
+
+            drive_client_tls_handshake($client);
+            run_with_timeout(2.0);
+
+            expect($completed)->toBeTrue();
+        });
+
         it('returns a PromiseInterface', function () use (&$certFile, &$server, &$client) {
             [$serverSocket, $client] = make_tls_pair($certFile, $server, $client);
             $connection = new Connection($serverSocket);
 
             $promise = $connection->enableEncryption(isServer: true);
 
-            expect($promise)->toBeInstanceOf(\Hibla\Promise\Interfaces\PromiseInterface::class);
+            expect($promise)->toBeInstanceOf(Hibla\Promise\Interfaces\PromiseInterface::class);
 
             $promise->cancel();
         });
@@ -474,7 +532,8 @@ describe('Connection', function () {
                 ->then(function ($result) use (&$resolved) {
                     $resolved = $result;
                     Loop::stop();
-                });
+                })
+            ;
 
             drive_client_tls_handshake($client);
             run_with_timeout(2.0);
@@ -495,7 +554,8 @@ describe('Connection', function () {
                     $completed = true;
                     Loop::stop();
                 })
-                ->catch(fn($e) => test()->fail($e->getMessage()));
+                ->catch(fn ($e) => test()->fail($e->getMessage()))
+            ;
 
             drive_client_tls_handshake($client);
             run_with_timeout(2.0);
@@ -514,7 +574,8 @@ describe('Connection', function () {
                     $completed = true;
                     Loop::stop();
                 })
-                ->catch(fn($e) => test()->fail($e->getMessage()));
+                ->catch(fn ($e) => test()->fail($e->getMessage()))
+            ;
 
             drive_client_tls_handshake($client);
             run_with_timeout(2.0);
@@ -535,7 +596,8 @@ describe('Connection', function () {
                     $completed = true;
                     Loop::stop();
                 })
-                ->catch(fn($e) => test()->fail($e->getMessage()));
+                ->catch(fn ($e) => test()->fail($e->getMessage()))
+            ;
 
             drive_client_tls_handshake($client);
             run_with_timeout(2.0);
@@ -562,11 +624,12 @@ describe('Connection', function () {
 
             $failed = false;
             $connection->enableEncryption(isServer: true)
-                ->then(fn() => test()->fail('Should not have resolved'))
+                ->then(fn () => test()->fail('Should not have resolved'))
                 ->catch(function () use (&$failed) {
                     $failed = true;
                     Loop::stop();
-                });
+                })
+            ;
 
             run_with_timeout(2.0);
 
@@ -580,7 +643,7 @@ describe('Connection', function () {
             $promise = $connection->enableEncryption(isServer: true);
             $promise->cancel();
 
-            expect(fn() => $promise->wait())->toThrow(CancelledException::class);
+            expect(fn () => $promise->wait())->toThrow(CancelledException::class);
             expect(is_resource($connection->getResource()))->toBeTrue();
         });
     });

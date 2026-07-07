@@ -48,52 +48,88 @@ final class Connection extends EventEmitter implements ConnectionInterface
         $this->stream->resume();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function isReadable(): bool
     {
         return $this->stream->isReadable();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function isWritable(): bool
     {
         return $this->stream->isWritable();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function pause(): void
     {
         $this->stream->pause();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function resume(): void
     {
         $this->stream->resume();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function pipe(WritableStreamInterface $destination, array $options = []): WritableStreamInterface
     {
         return $this->stream->pipe($destination, $options);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function write(string $data): bool
     {
         return $this->stream->write($data);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function end(?string $data = null): void
     {
         $this->stream->end($data);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function close(): void
     {
         if ($this->closing) {
             return;
         }
-        
+
         $this->closing = true;
 
         $this->stream->close();
         $this->handleClose();
         $this->removeAllListeners();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getMetadata(): array
+    {
+        if (! \is_resource($this->resource)) {
+            return [];
+        }
+
+        return \stream_get_meta_data($this->resource);
     }
 
     /**

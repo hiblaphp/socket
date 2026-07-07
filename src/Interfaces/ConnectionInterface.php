@@ -44,6 +44,16 @@ interface ConnectionInterface extends DuplexStreamInterface
     public function getLocalAddress(): ?string;
 
     /**
+     * Retrieves stream metadata.
+     *
+     * This provides underlying details about the stream resource, including
+     * cryptographic information ('crypto' key) if TLS/SSL is enabled.
+     *
+     * @return array<string, mixed>
+     */
+    public function getMetadata(): array;
+
+    /**
      * Enables SSL/TLS encryption on the connection mid-flight.
      *
      * Useful for protocols that start in plaintext and upgrade to secure connections
